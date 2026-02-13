@@ -53,77 +53,142 @@ const fillLight = new THREE.DirectionalLight(0x8888ff, 0.5);
 fillLight.position.set(-10, 10, -10);
 scene.add(fillLight);
 
-// Add grid helper
-const gridHelper = new THREE.GridHelper(100, 100, 0x444444, 0x222222);
-scene.add(gridHelper);
+// REMOVED: ground plane that was intersecting the mesh
 
-// Add a ground plane to receive shadows
-const groundGeometry = new THREE.PlaneGeometry(200, 200);
-const groundMaterial = new THREE.MeshStandardMaterial({ 
-  color: 0x111111,
-  roughness: 0.8,
-  metalness: 0.2
-});
-const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-ground.rotation.x = -Math.PI / 2;
-ground.position.y = -0.1; // Slightly below the grid
-ground.receiveShadow = true;
-scene.add(ground);
-
-// Create pixelated texture grid
-function createPixelatedGrid(texturePath, gridCols, gridRows, gridSize = 10) {
+// Create pixelated texture grid from image using InstancedMesh for performance
+function createPixelatedGrid(texturePath, gridCols, gridRows, gridSize = 10, position = { x: 0, y: 10, z: 0 }) {
   const loader = new THREE.TextureLoader();
   
   loader.load(texturePath, (texture) => {
-    const squareSize = gridSize / gridCols;
-    const gridGroup = new THREE.Group();
+    const image = texture.image;
     
+    // Create a canvas to read pixel data
+    const canvas = document.createElement('canvas');
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(image, 0, 0);
+    
+    const squareSize = gridSize / gridCols;
+    const instanceCount = gridCols * gridRows;
+    
+    // Create single shared geometry and material
+    const planeGeometry = new THREE.PlaneGeometry(squareSize, squareSize);
+    const material = new THREE.MeshBasicMaterial({
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.8
+    });
+    
+    // Create instanced mesh for all squares
+    const instancedMesh = new THREE.InstancedMesh(planeGeometry, material, instanceCount);
+    
+    // Calculate pixel dimensions for each grid cell
+    const pixelWidth = image.width / gridCols;
+    const pixelHeight = image.height / gridRows;
+    
+    const tempObject = new THREE.Object3D();
+    const tempColor = new THREE.Color();
+    
+    let idx = 0;
     for (let row = 0; row < gridRows; row++) {
       for (let col = 0; col < gridCols; col++) {
-        // Create a plane for each grid cell
-        const planeGeometry = new THREE.PlaneGeometry(squareSize, squareSize);
+        // Sample the center pixel of this grid cell
+        const pixelX = Math.floor(col * pixelWidth + pixelWidth / 2);
+        const pixelY = Math.floor(row * pixelHeight + pixelHeight / 2);
         
-        // Clone the texture for each square
-        const squareTexture = texture.clone();
-        squareTexture.needsUpdate = true;
-        
-        // Set UV offset and repeat to show only this section of the texture
-        squareTexture.repeat.set(1 / gridCols, 1 / gridRows);
-        squareTexture.offset.set(col / gridCols, 1 - (row + 1) / gridRows);
-        
-        // Disable texture filtering for pixelated effect
-        squareTexture.magFilter = THREE.NearestFilter;
-        squareTexture.minFilter = THREE.NearestFilter;
-        
-        const material = new THREE.MeshBasicMaterial({
-          map: squareTexture,
-          side: THREE.DoubleSide
-        });
-        
-        const square = new THREE.Mesh(planeGeometry, material);
+        // Get the pixel color
+        const imageData = ctx.getImageData(pixelX, pixelY, 1, 1);
+        const [r, g, b] = imageData.data;
         
         // Position each square
         const x = (col - gridCols / 2) * squareSize + squareSize / 2;
-        const y = (row - gridRows / 2) * squareSize + squareSize / 2;
-        square.position.set(x, y, 0);
+        const y = (gridRows / 2 - row) * squareSize - squareSize / 2;
         
-        gridGroup.add(square);
+        tempObject.position.set(x, y, 0);
+        tempObject.updateMatrix();
+        instancedMesh.setMatrixAt(idx, tempObject.matrix);
+        
+        // Set per-instance color
+        tempColor.setRGB(r / 255, g / 255, b / 255);
+        instancedMesh.setColorAt(idx, tempColor);
+        
+        idx++;
       }
     }
     
     // Position the grid in the scene
-    gridGroup.position.set(20, 10, 0);
-    scene.add(gridGroup);
+    instancedMesh.position.set(position.x, position.y, position.z);
+    scene.add(instancedMesh);
     
-    console.log(`Created ${gridCols}x${gridRows} pixelated grid`);
+    console.log(`Created ${gridCols}x${gridRows} pixelated grid (${instanceCount} instances)`);
   }, undefined, (error) => {
     console.error('Error loading texture:', error);
   });
 }
 
-// Example usage: create a 16x16 grid with a texture
-// Uncomment and provide your texture path
-// createPixelatedGrid('your-texture.jpg', 16, 16, 10);
+// Create grid wireframe with n rows and columns (optimized single geometry)
+function createGridWireframe(boundingBox, rows = 10, cols = 10) {
+  const size = new THREE.Vector3();
+  boundingBox.getSize(size);
+  
+  const vertices = [];
+  
+  // Create horizontal lines (along X axis)
+//   for (let i = 0; i <= rows; i++) {
+//     const y = boundingBox.min.y + (size.y / rows) * i;
+//     // Front face
+//     vertices.push(
+//       boundingBox.min.x, y, boundingBox.min.z,
+//       boundingBox.max.x, y, boundingBox.min.z
+//     );
+//     // Back face
+//     vertices.push(
+//       boundingBox.min.x, y, boundingBox.max.z,
+//       boundingBox.max.x, y, boundingBox.max.z
+//     );
+//   }
+  
+  // Create vertical lines (along Y axis)
+  for (let i = 0; i <= cols; i++) {
+    const x = boundingBox.min.x + (size.x / cols) * i;
+    // Front face
+    // vertices.push(
+    //   x, boundingBox.min.y, boundingBox.min.z,
+    //   x, boundingBox.max.y, boundingBox.min.z
+    // );
+    // Back face
+    // vertices.push(
+    //   x, boundingBox.min.y, boundingBox.max.z,
+    //   x, boundingBox.max.y, boundingBox.max.z
+    // );
+  }
+  
+  // Create depth lines (along Z axis) at grid intersections
+  for (let i = 0; i <= 1; i++) {
+    for (let j = 0; j <= cols; j++) {
+      const x = boundingBox.min.x + (size.x / cols) * j;
+      const y = boundingBox.min.y + (size.y / rows) * i;
+      vertices.push(
+        x, y, boundingBox.min.z,
+        x, y, boundingBox.max.z
+      );
+    }
+  }
+  
+  // Create single geometry with all line segments
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  
+  const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
+  const lineSegments = new THREE.LineSegments(geometry, lineMaterial);
+  
+  scene.add(lineSegments);
+  return lineSegments;
+}
+
+// Create pixelated grid from the meme image
+createPixelatedGrid('public/texture.png', 64, 64, 20, { x: 30, y: 10, z: 0 });
 
 let cubes = null;
 let instanceData = null;
@@ -164,7 +229,6 @@ fetch('pointcloud.json')
     const cubeSize = 0.4;
     const cubeGeometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
     
-    // Changed to MeshStandardMaterial for realistic lighting and shadows
     const material = new THREE.MeshStandardMaterial({ 
       color: 0xffffff,
       roughness: 0.7,
@@ -177,7 +241,6 @@ fetch('pointcloud.json')
       centeredPositions.length / 3
     );
 
-    // Enable shadow casting and receiving
     cubes.castShadow = true;
     cubes.receiveShadow = true;
 
@@ -210,69 +273,23 @@ fetch('pointcloud.json')
       instanceData.speeds[rIndex + 2] = (Math.random() * 0.3 + 0.05) * (Math.random() < 0.5 ? -1 : 1);
     }
 
-    // Rotate the point cloud back on X axis
     cubes.rotation.x = -Math.PI / 2;
     scene.add(cubes);
 
-    // Get bounding box of the rotated cubes
     const box3 = new THREE.Box3().setFromObject(cubes);
+    
+    // Create grid wireframe with 10 rows and 10 columns (change these numbers as needed)
+    createGridWireframe(box3, 4, 4);
+
     const size = new THREE.Vector3();
     box3.getSize(size);
-    const boxCenter = new THREE.Vector3();
-    box3.getCenter(boxCenter);
 
-    // Find the topmost and bottommost Z values (after rotation)
-    const topZ = box3.max.z;
-    const bottomZ = box3.min.z;
-
-    // Create wireframe box geometry
-    const wireframeGeometry = new THREE.BoxGeometry(size.x, size.y, 0.5);
-    const wireframeMaterial = new THREE.MeshBasicMaterial({
-      color: 0x00ff00,
-      wireframe: true
-    });
-
-    // Top wireframe box
-    const topWireframe = new THREE.Mesh(wireframeGeometry, wireframeMaterial);
-    topWireframe.position.set(boxCenter.x, boxCenter.y, topZ);
-    scene.add(topWireframe);
-
-    // Bottom wireframe box
-    const bottomWireframeMaterial = new THREE.MeshBasicMaterial({
-      color: 0xff0000,
-      wireframe: true
-    });
-    const bottomWireframe = new THREE.Mesh(wireframeGeometry, bottomWireframeMaterial);
-    bottomWireframe.position.set(boxCenter.x, boxCenter.y, bottomZ);
-    scene.add(bottomWireframe);
-
-    // Add connecting lines between corners
-    const edgesMaterial = new THREE.LineBasicMaterial({ color: 0xffff00 });
-    
-    const corners = [
-      [box3.min.x, box3.min.y],
-      [box3.max.x, box3.min.y],
-      [box3.max.x, box3.max.y],
-      [box3.min.x, box3.max.y]
-    ];
-
-    corners.forEach(([x, y]) => {
-      const lineGeometry = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(x, y, bottomZ),
-        new THREE.Vector3(x, y, topZ)
-      ]);
-      const line = new THREE.Line(lineGeometry, edgesMaterial);
-      scene.add(line);
-    });
-
-    // Update shadow camera to fit the bounding box
     directionalLight.shadow.camera.left = box3.min.x - 10;
     directionalLight.shadow.camera.right = box3.max.x + 10;
     directionalLight.shadow.camera.top = box3.max.y + 10;
     directionalLight.shadow.camera.bottom = box3.min.y - 10;
     directionalLight.shadow.camera.updateProjectionMatrix();
 
-    // Adjust camera to fit the point cloud
     const maxDim = Math.max(size.x, size.y, size.z);
     const fov = camera.fov * (Math.PI / 180);
     let cameraZ = Math.abs(maxDim / Math.tan(fov / 2));
@@ -286,21 +303,18 @@ fetch('pointcloud.json')
 
     console.log(`Loaded ${data.points.length} cubes`);
     console.log(`Bounding box size:`, size);
-    console.log(`Top Z: ${topZ}, Bottom Z: ${bottomZ}`);
   })
   .catch(error => {
     console.error('Error loading point cloud:', error);
     document.getElementById('loading').textContent = 'Error loading point cloud';
   });
 
-// Handle window resize
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// Animation loop
 function animate() {
   requestAnimationFrame(animate);
   const delta = clock.getDelta();
