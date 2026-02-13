@@ -1,0 +1,26 @@
+{
+  "name": "d-cross",
+  "version": "1.0.0",
+  "description": "",
+  "main": "mesh-to-pointcloud.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ekkezia/d-cross.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ekkezia/d-cross/issues"
+  },
+  "homepage": "https://github.com/ekkezia/d-cross#readme",
+  "dependencies": {
+    "@gltf-transform/core": "^4.3.0",
+    "@gltf-transform/functions": "^4.3.0",
+    "three": "^0.182.0",
+    "three-stdlib": "^2.36.1"
+  }
+}
