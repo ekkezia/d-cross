@@ -1,40 +1,66 @@
-import trimesh
+import argparse
 import json
-import numpy as np
+import math
 
-# Load the GLB file
-scene = trimesh.load('model.glb')
+import trimesh
 
-# Check if it's a Scene and extract geometry
-if isinstance(scene, trimesh.Scene):
-    # Combine all meshes in the scene into one
-    mesh = trimesh.util.concatenate(
-        [geom for geom in scene.geometry.values() 
-         if isinstance(geom, trimesh.Trimesh)]
+
+def load_single_mesh(path: str) -> trimesh.Trimesh:
+    scene_or_mesh = trimesh.load(path)
+    if isinstance(scene_or_mesh, trimesh.Scene):
+        meshes = [
+            geom for geom in scene_or_mesh.geometry.values()
+            if isinstance(geom, trimesh.Trimesh)
+        ]
+        if not meshes:
+            raise ValueError(f"No mesh geometry found in scene: {path}")
+        return trimesh.util.concatenate(meshes)
+    if isinstance(scene_or_mesh, trimesh.Trimesh):
+        return scene_or_mesh
+    raise ValueError(f"Unsupported geometry type from {path}: {type(scene_or_mesh)}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Convert mesh to sampled point cloud JSON.")
+    parser.add_argument("--input", default="public/bridge.glb", help="Input mesh path (GLB/GLTF/OBJ/FBX-supported by trimesh).")
+    parser.add_argument("--output", default="pointcloud.json", help="Output JSON path.")
+    parser.add_argument("--num-points", type=int, default=10000, help="Number of surface sample points.")
+    parser.add_argument("--scale", type=float, default=1.0, help="Uniform scale applied before sampling.")
+    parser.add_argument("--rot-x-deg", type=float, default=0.0, help="Rotation X in degrees.")
+    parser.add_argument("--rot-y-deg", type=float, default=0.0, help="Rotation Y in degrees.")
+    parser.add_argument("--rot-z-deg", type=float, default=0.0, help="Rotation Z in degrees.")
+    args = parser.parse_args()
+
+    mesh = load_single_mesh(args.input)
+
+    if args.scale != 1.0:
+        mesh.apply_scale(args.scale)
+
+    rx = math.radians(args.rot_x_deg)
+    ry = math.radians(args.rot_y_deg)
+    rz = math.radians(args.rot_z_deg)
+    rotation = trimesh.transformations.euler_matrix(rx, ry, rz, "sxyz")
+    mesh.apply_transform(rotation)
+
+    points, face_indices = trimesh.sample.sample_surface(mesh, args.num_points)
+
+    point_cloud = {
+        "points": points.tolist(),
+        "count": len(points),
+    }
+
+    if hasattr(mesh.visual, "vertex_colors") and mesh.visual.vertex_colors is not None:
+        colors = mesh.visual.vertex_colors[mesh.faces[face_indices]]
+        point_cloud["colors"] = colors.tolist()
+
+    with open(args.output, "w", encoding="utf-8") as f:
+        json.dump(point_cloud, f)
+
+    print(
+        f"Generated point cloud with {len(points)} points from {args.input} "
+        f"(scale={args.scale}, rot=({args.rot_x_deg},{args.rot_y_deg},{args.rot_z_deg}))"
     )
-else:
-    mesh = scene
 
-# Sample points from the mesh surface
-num_points = 10000
-points, face_indices = trimesh.sample.sample_surface(mesh, num_points)
 
-# Optional: get colors if mesh has vertex colors
-colors = None
-if hasattr(mesh.visual, 'vertex_colors'):
-    colors = mesh.visual.vertex_colors[mesh.faces[face_indices]]
-
-# Convert to JSON format
-point_cloud = {
-    "points": points.tolist(),
-    "count": len(points)
-}
-
-if colors is not None:
-    point_cloud["colors"] = colors.tolist()
-
-# Save to JSON
-with open('pointcloud.json', 'w') as f:
-    json.dump(point_cloud, f, indent=2)
-
-print(f"Generated point cloud with {len(points)} points")
+if __name__ == "__main__":
+    main()
