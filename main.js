@@ -18,17 +18,17 @@ const flipConfig = {
 
 function initFlipVideo() {
   flipConfig.video = document.createElement('video');
-  flipConfig.video.src         = 'public/video.mov';
-  flipConfig.video.loop        = true;
-  flipConfig.video.muted       = true;
+  flipConfig.video.loop         = true;
+  flipConfig.video.muted        = true;
   flipConfig.video.defaultMuted = true;
-  flipConfig.video.playsInline = true;
-  flipConfig.video.autoplay    = true;
-  flipConfig.video.preload     = 'auto';
-  flipConfig.video.crossOrigin = 'anonymous';
+  flipConfig.video.playsInline  = true;
+  flipConfig.video.autoplay     = true;
+  flipConfig.video.preload      = 'auto';
+  flipConfig.video.crossOrigin  = 'anonymous';
   flipConfig.video.setAttribute('muted', '');
   flipConfig.video.setAttribute('playsinline', '');
   flipConfig.video.setAttribute('webkit-playsinline', '');
+  flipConfig.video.src          = 'public/video.mp4';
   flipConfig.video.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0.001;pointer-events:none;';
   document.body.appendChild(flipConfig.video);
 
@@ -38,15 +38,19 @@ function initFlipVideo() {
 
   const markReadyAndTryPlay = () => {
     flipConfig.videoReady = true;
-    // Attempt autoplay; if blocked, retry on first pointer interaction
+    // Attempt autoplay; if blocked, retry on first interaction.
     flipConfig.video.play().catch(() => {
       window.addEventListener('pointerdown', tryVideoPlay, { once: true });
       window.addEventListener('keydown', tryVideoPlay, { once: true });
     });
   };
 
+  flipConfig.video.addEventListener('loadedmetadata', markReadyAndTryPlay);
   flipConfig.video.addEventListener('loadeddata', markReadyAndTryPlay);
   flipConfig.video.addEventListener('canplaythrough', markReadyAndTryPlay);
+  flipConfig.video.addEventListener('playing', () => {
+    flipConfig.videoReady = true;
+  });
 
   flipConfig.video.addEventListener('error', (e) => {
     console.error('Video error:', e, flipConfig.video.error);
@@ -68,6 +72,7 @@ function initFlipVideo() {
 let flipGrid = null;
 let flipData = null;
 let flipVideoTexture = null;
+let lastVideoTime = -1;
 let flipState = {
   isAnimating: false,
   elapsed: 0,
@@ -91,8 +96,8 @@ function createFlipGrid() {
     const row = Math.floor(i / cols);
     const col = i % cols;
 
-    // UV offsets for video texture sampling
-    offsets[i * 2]     = col / cols;
+    // Per-instance tile index in UV space.
+    offsets[i * 2] = col / cols;
     offsets[i * 2 + 1] = row / rows;
 
     // Position offsets for spacing
@@ -110,42 +115,46 @@ function createFlipGrid() {
   videoTexture.minFilter = THREE.LinearFilter;
   videoTexture.magFilter = THREE.LinearFilter;
   videoTexture.generateMipmaps = false;
+  videoTexture.colorSpace = THREE.SRGBColorSpace;
   flipVideoTexture = videoTexture;
 
   const material = new THREE.ShaderMaterial({
     uniforms: {
       videoTex: { value: videoTexture },
-      cols:     { value: cols },
-      rows:     { value: rows }
+      cols: { value: cols },
+      rows: { value: rows },
     },
     vertexShader: `
       attribute vec2 uvOffset;
-      varying vec2 vUv;
-
+      varying vec2 vTileUv;
       uniform float cols;
       uniform float rows;
 
       void main() {
-        vUv = uv / vec2(cols, rows) + uvOffset;
-
+        // Center sample point of this tile in the source video.
+        vTileUv = uvOffset + vec2(0.5 / cols, 0.5 / rows);
         vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
         gl_Position = projectionMatrix * mvPosition;
       }
     `,
     fragmentShader: `
       uniform sampler2D videoTex;
-      varying vec2 vUv;
+      varying vec2 vTileUv;
 
       void main() {
-        gl_FragColor = texture2D(videoTex, vUv);
+        gl_FragColor = texture2D(videoTex, vTileUv);
       }
     `,
-    side: THREE.DoubleSide
+    side: THREE.DoubleSide,
   });
 
   flipGrid = new THREE.InstancedMesh(geometry, material, count);
-  flipGrid.position.set(0, -2, 0);
+const cubeSize = new THREE.Vector3();
+new THREE.Box3().setFromObject(reservedCube).getSize(cubeSize);
+
+flipGrid.position.set(-cubeSize.x / 2, -2, 0);
   flipGrid.rotation.y = Math.PI / 2;
+  flipGrid.scale.setScalar(0.15);
   scene.add(flipGrid);
 
   // Set individual positions for each instance
@@ -577,13 +586,17 @@ function renderLoop() {
   rafId = requestAnimationFrame(renderLoop);
   const delta = clock.getDelta();
 
-  // Keep video playback active and force frame upload fallback for the shader texture.
-  if (flipConfig.videoReady && flipConfig.video) {
+  // Keep video playback active and keep the VideoTexture fresh.
+  if (flipConfig.video) {
     if (flipConfig.video.paused) {
       flipConfig.video.play().catch(() => {});
     }
     if (flipVideoTexture && flipConfig.video.readyState >= flipConfig.video.HAVE_CURRENT_DATA) {
       flipVideoTexture.needsUpdate = true;
+    }
+    if (flipConfig.video.currentTime !== lastVideoTime) {
+      lastVideoTime = flipConfig.video.currentTime;
+      flipConfig.videoReady = true;
     }
   }
 
