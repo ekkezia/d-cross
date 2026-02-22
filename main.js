@@ -358,7 +358,7 @@ const state = {
 // ─────────────────────────────────────────────
 
 const scene  = new THREE.Scene();
-scene.background = new THREE.Color(0xffffff);
+scene.background = new THREE.Color(0x000000);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.03, 1000);
 camera.position.set(5, 5, 5);
@@ -551,12 +551,13 @@ function createReservedCube() {
     new THREE.BoxGeometry(0.6, 0.6, 0.6),
     new THREE.MeshBasicMaterial({ map: renderTarget.texture, transparent: true, opacity: 1 })
   );
-  reservedCube.position.set(0, -2, 0);
+  reservedCube.position.set(0, 0, 0);
   reservedCube.rotation.x   = -Math.PI / 2;
   reservedCube.visible = false;
   reservedCube.castShadow    = true;
   reservedCube.receiveShadow = true;
   scene.add(reservedCube);
+  cam.target.copy(reservedCube.position);
 }
 
 // ─────────────────────────────────────────────
@@ -566,6 +567,40 @@ function createReservedCube() {
 let cubes        = null;
 let instanceData = null;
 let bridgeDebugMesh = null;
+let meshToPointCloudTransitionStarted = false;
+
+function setBridgeDebugMeshOpacity(opacity) {
+  if (!bridgeDebugMesh) return;
+  forEachObjectMaterial(bridgeDebugMesh, (material) => {
+    material.opacity = opacity;
+  });
+}
+
+function maybeStartMeshToPointCloudTransition() {
+  if (meshToPointCloudTransitionStarted) return;
+  if (!bridgeDebugMesh || !cubes || !cubes.material) return;
+
+  meshToPointCloudTransitionStarted = true;
+  setBridgeDebugMeshOpacity(1);
+  cubes.material.opacity = 0;
+
+  const bridgeFade = { opacity: 1 };
+  gsap.timeline()
+    .to(bridgeFade, {
+      opacity: 0,
+      duration: 2.0,
+      ease: "power2.inOut",
+      onUpdate: () => setBridgeDebugMeshOpacity(bridgeFade.opacity),
+      onComplete: () => {
+        bridgeDebugMesh.visible = false;
+      },
+    }, 0)
+    .to(cubes.material, {
+      opacity: 1,
+      duration: 2.0,
+      ease: "power2.inOut",
+    }, 0);
+}
 
 function alignBridgeDebugMeshToFlipGridCenter() {
   if (!bridgeDebugMesh || !flipGrid) return;
@@ -597,7 +632,7 @@ function loadBridgeDebugMesh(url) {
       const mats = Array.isArray(child.material) ? child.material : [child.material];
       mats.forEach((mat) => {
         mat.transparent = true;
-        mat.opacity = 0.45;
+        mat.opacity = 1;
         mat.depthWrite = false;
         mat.needsUpdate = true;
       });
@@ -606,6 +641,8 @@ function loadBridgeDebugMesh(url) {
     bridgeDebugMesh = model;
     alignBridgeDebugMeshToFlipGridCenter();
     scene.add(model);
+    bridgeDebugMesh.visible = true;
+    maybeStartMeshToPointCloudTransition();
   });
 }
 
@@ -649,14 +686,15 @@ function loadPointCloud() {
     const count   = positions.length / 3;
     const cubeMat = new THREE.MeshStandardMaterial({
       color: 0xffffff, roughness: 0.7, metalness: 0.3,
-      transparent: true, opacity: 1, depthWrite: false, depthTest: true,
+      transparent: true, opacity: 0, depthWrite: false, depthTest: true,
     });
 
     cubes = new THREE.InstancedMesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), cubeMat, count);
     cubes.castShadow = cubes.receiveShadow = true;
     cubes.rotation.x = 0;
-    cubes.rotation.y = Math.PI / 2;
+    cubes.rotation.y = 0;
     cubes.rotation.z = 0;
+    cubes.position.y += 2.0;
     scene.add(cubes);
 
     const rotations = new Float32Array(count * 3);
@@ -678,6 +716,7 @@ function loadPointCloud() {
     const box3 = new THREE.Box3().setFromObject(cubes);
     createGridWireframe(box3);
     loadBridgeDebugMesh('public/bridge.glb');
+    maybeStartMeshToPointCloudTransition();
 
     dirLight.shadow.camera.left   = box3.min.x - 10;
     dirLight.shadow.camera.right  = box3.max.x + 10;
@@ -700,12 +739,18 @@ function loadPointCloud() {
 
 const cam = {
   active: false,
-  target: new THREE.Vector3(0, -2, 0),
+  target: new THREE.Vector3(0, 0, 0),
   angle:  0,
   radius: 40,
-  height: 20,
+  height: 0.5,
   fov: 75,
 };
+let cameraTimeline = null;
+
+function syncCameraTargetToReservedCube() {
+  if (!reservedCube) return;
+  cam.target.copy(reservedCube.position);
+}
 
 function applyCameraFromState() {
   if (!cam.active) return;
@@ -723,16 +768,19 @@ function applyCameraFromState() {
 
 function animateCameraToCube() {
   cam.active = true;
+  syncCameraTargetToReservedCube();
   applyCameraFromState();
 
-  gsap.timeline()
+  cameraTimeline = gsap.timeline()
     .to(cam, {
-      angle: Math.PI, radius: 1, height: 0,
+      angle: 0, radius: 1, height: -3.2,
       duration: 8, ease: 'power2.inOut',
     }, 0)
     .to(cubes?.material ?? {}, {
-      opacity: 0.01, duration: 6, ease: 'power2.inOut',
-    }, 0)
+      opacity: 0,
+      duration: 4,
+      ease: 'power1.out',
+    }, 2)
     .to(reservedCube?.material ?? {}, {
       opacity: 0,
       duration: 0.8,
@@ -751,6 +799,20 @@ function animateCameraToCube() {
     }, 5)
     ;
 }
+
+window.addEventListener('keydown', (event) => {
+  if (event.code !== 'Space') return;
+  const target = event.target;
+  const tag = target && target.tagName ? target.tagName.toLowerCase() : '';
+  if (tag === 'input' || tag === 'textarea' || (target && target.isContentEditable)) return;
+  if (!cameraTimeline) return;
+  event.preventDefault();
+  if (cameraTimeline.paused()) {
+    cameraTimeline.play();
+  } else {
+    cameraTimeline.pause();
+  }
+});
 
 // ─────────────────────────────────────────────
 // 3-D RUNWAY HUMAN
@@ -989,6 +1051,7 @@ function renderLoop() {
   }
 
   // ── Camera ──
+  syncCameraTargetToReservedCube();
   applyCameraFromState();
 
   // ── Off-screen render target ──
