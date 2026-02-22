@@ -9,8 +9,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 // ─────────────────────────────────────────────
 
 const flipConfig = {
-  cols:          20,
-  rows:          20,
+  cols:          21,
+  rows:          21,
   size:          20,
   speed:         100,
   video:         null,
@@ -26,6 +26,23 @@ const pointCloudGeneration = {
   rotXDeg: 0,
   rotYDeg: 90,
   rotZDeg: 0,
+};
+
+const blueMono = {
+  sceneBg: 0x0d00ff,
+  ambientLight: 0x6259ff,
+  keyLight: 0xdbd9ff,
+  fillLight: 0x04004c,
+  gridLine: 0xaaa6ff,
+  pixelBg: 0xc2bfff,
+  pixelLine: 0x030033,
+  pointCloud: 0x4a40ff,
+  model: 0x3126ff,
+  reservedTint: 0x928cff,
+  monoDark: 0x01001a,
+  monoLight: 0xc2bfff,
+  emissiveBridge: 0x030033,
+  emissiveModel: 0x020026,
 };
 
 function initFlipVideo() {
@@ -69,22 +86,6 @@ function initFlipVideo() {
   });
 
   flipConfig.video.load();
-
-  gsap.delayedCall(10, () => {
-    flipState.isAnimating = true;
-    flipState.elapsed = 0;
-    flipState.spacingProgress = 0;
-    flipCenterRowLineShown = false;
-    if (flipCenterRowLine) {
-      flipCenterRowLine.visible = false;
-      flipCenterRowLine.material.opacity = 0;
-    }
-    if (flipData) {
-      for (let i = 0; i < flipData.angles.length; i++) {
-        flipData.angles[i] = 0;
-      }
-    }
-  });
 }
 
 let flipGrid = null;
@@ -98,6 +99,10 @@ let staticSidesFadePending = false;
 let staticSidesPendingFadeDuration = 0.8;
 let flipCenterRowLine = null;
 let flipCenterRowLineShown = false;
+const flipGridBaseScale = 0.15;
+const flipTileDepthStart = 0.1;
+const flipTileDepthEnd = 0.00001;
+const flipTileDepthState = { value: flipTileDepthStart };
 let flipState = {
   isAnimating: false,
   elapsed: 0,
@@ -105,18 +110,71 @@ let flipState = {
   spacingProgress: 0, // 0 = current gaps, 1 = zero gaps
 };
 
+function updateFlipGridInstanceMatrices() {
+  if (!flipGrid || !flipData) return;
+  const { cols, rows } = flipConfig;
+  const count = flipData.angles.length;
+  const depthScale = Math.max(flipTileDepthState.value / flipTileDepthStart, 1e-5);
+  const baseStep = flipConfig.size / 100;
+  const tightStep = baseStep * 0.95;
+  const tileStep = THREE.MathUtils.lerp(baseStep, tightStep, flipState.spacingProgress);
+  const dummy = new THREE.Object3D();
+
+  for (let i = 0; i < count; i++) {
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+    const x = (col - cols / 2 + 0.5) * tileStep;
+    const y = (row - rows / 2 + 0.5) * tileStep;
+    dummy.position.set(x, y, 0);
+    dummy.rotation.set(flipData.angles[i], 0, 0);
+    dummy.scale.set(1, 1, depthScale);
+    dummy.updateMatrix();
+    flipGrid.setMatrixAt(i, dummy.matrix);
+  }
+  flipGrid.instanceMatrix.needsUpdate = true;
+}
+
+function applyFlipGridDepth(depth) {
+  const safeDepth = Math.max(depth, 1e-6);
+  flipTileDepthState.value = safeDepth;
+  updateFlipGridInstanceMatrices();
+}
+
+function setFlipGridOpacity(opacity) {
+  if (!flipGrid || !flipGrid.material?.uniforms?.uOpacity) return;
+  const clamped = THREE.MathUtils.clamp(opacity, 0, 1);
+  flipGrid.material.uniforms.uOpacity.value = clamped;
+  flipGrid.visible = clamped > 0.0001;
+}
+
+function resetFlipCascadeState(startAnimating = false) {
+  flipState.isAnimating = startAnimating;
+  flipState.elapsed = 0;
+  flipState.spacingProgress = 0;
+  flipCenterRowLineShown = false;
+  if (flipCenterRowLine) {
+    flipCenterRowLine.visible = false;
+    flipCenterRowLine.material.opacity = 0;
+  }
+  if (flipData) {
+    for (let i = 0; i < flipData.angles.length; i++) {
+      flipData.angles[i] = 0;
+    }
+  }
+  updateFlipGridInstanceMatrices();
+}
+
 function createFlipGrid() {
   const { cols, rows, size } = flipConfig;
 
   // Slightly smaller tiles for spacing + a thin depth for visible thickness.
   const tileSize = (size / 100) * 0.95;
-  const tileDepth = (size / 100) * 0.02;
+  const tileDepth = flipTileDepthStart;
   const geometry = new THREE.BoxGeometry(tileSize, tileSize, tileDepth);
 
   const count = cols * rows;
 
   const offsets = new Float32Array(count * 2);
-  const positions = new Float32Array(count * 3);
 
   for (let i = 0; i < count; i++) {
     const row = Math.floor(i / cols);
@@ -125,11 +183,6 @@ function createFlipGrid() {
     // Per-instance tile index in UV space.
     offsets[i * 2] = col / cols;
     offsets[i * 2 + 1] = row / rows;
-
-    // Position offsets for spacing
-    positions[i * 3]     = (col - cols / 2 + 0.5) * (size / 100);
-    positions[i * 3 + 1] = (row - rows / 2 + 0.5) * (size / 100);
-    positions[i * 3 + 2] = 0;
   }
 
   geometry.setAttribute(
@@ -149,6 +202,9 @@ function createFlipGrid() {
       videoTex: { value: videoTexture },
       cols: { value: cols },
       rows: { value: rows },
+      monoDark: { value: new THREE.Color(blueMono.monoDark) },
+      monoLight: { value: new THREE.Color(blueMono.monoLight) },
+      uOpacity: { value: 1.0 },
     },
     vertexShader: `
       attribute vec2 uvOffset;
@@ -167,32 +223,33 @@ function createFlipGrid() {
     fragmentShader: `
       uniform sampler2D videoTex;
       varying vec2 vTileUv;
+      uniform vec3 monoDark;
+      uniform vec3 monoLight;
+      uniform float uOpacity;
 
       void main() {
-        gl_FragColor = texture2D(videoTex, vTileUv);
+        vec4 src = texture2D(videoTex, vTileUv);
+        float luma = dot(src.rgb, vec3(0.299, 0.587, 0.114));
+        vec3 mono = mix(monoDark, monoLight, luma);
+        gl_FragColor = vec4(mono, src.a * uOpacity);
       }
     `,
     side: THREE.DoubleSide,
+    transparent: true,
+    depthWrite: false,
   });
 
   flipGrid = new THREE.InstancedMesh(geometry, material, count);
 const cubeSize = new THREE.Vector3();
 new THREE.Box3().setFromObject(reservedCube).getSize(cubeSize);
 
-flipGrid.position.set(-cubeSize.x / 2, -2.1, 0);
+flipGrid.position.set(-cubeSize.x / 2, -2, 0);
   flipGrid.rotation.y = Math.PI / 2;
-  flipGrid.scale.setScalar(0.15);
+  flipGrid.scale.setScalar(flipGridBaseScale);
+  applyFlipGridDepth(flipTileDepthStart);
+  setFlipGridOpacity(1);
   scene.add(flipGrid);
   alignBridgeDebugMeshToFlipGridCenter();
-
-  // Set individual positions for each instance
-  const dummy = new THREE.Object3D();
-  for (let i = 0; i < count; i++) {
-    dummy.position.set(positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]);
-    dummy.updateMatrix();
-    flipGrid.setMatrixAt(i, dummy.matrix);
-  }
-  flipGrid.instanceMatrix.needsUpdate = true;
 
   const angles = new Float32Array(count);
   const delays = new Float32Array(count);
@@ -208,6 +265,7 @@ flipGrid.position.set(-cubeSize.x / 2, -2.1, 0);
   const maxDelay = delays[delays.length - 1] ?? 0;
   const totalDuration = maxDelay + (Math.PI / 2) / flipState.speed;
   flipData = { angles, delays, totalDuration };
+  updateFlipGridInstanceMatrices();
 }
 
 function createStaticFlipGridSides() {
@@ -238,6 +296,8 @@ function createStaticFlipGridSides() {
       cols: { value: cols },
       rows: { value: rows },
       uOpacity: { value: 1.0 },
+      monoDark: { value: new THREE.Color(blueMono.monoDark) },
+      monoLight: { value: new THREE.Color(blueMono.monoLight) },
     },
     vertexShader: `
       attribute vec2 uvOffset;
@@ -255,11 +315,14 @@ function createStaticFlipGridSides() {
       uniform sampler2D staticTex;
       varying vec2 vTileUv;
       uniform float uOpacity;
+      uniform vec3 monoDark;
+      uniform vec3 monoLight;
 
       void main() {
         vec4 color = texture2D(staticTex, vTileUv);
-        color.a *= uOpacity;
-        gl_FragColor = color;
+        float luma = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+        vec3 mono = mix(monoDark, monoLight, luma);
+        gl_FragColor = vec4(mono, color.a * uOpacity);
       }
     `,
     side: THREE.DoubleSide,
@@ -404,7 +467,7 @@ const state = {
 // ─────────────────────────────────────────────
 
 const scene  = new THREE.Scene();
-scene.background = new THREE.Color(0x000000);
+scene.background = new THREE.Color(blueMono.sceneBg);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.03, 1000);
 camera.position.set(5, 5, 5);
@@ -425,9 +488,9 @@ controls.enabled       = false;
 // LIGHTS
 // ─────────────────────────────────────────────
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+scene.add(new THREE.AmbientLight(blueMono.ambientLight, 0.42));
 
-const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+const dirLight = new THREE.DirectionalLight(blueMono.keyLight, 1.35);
 dirLight.position.set(10, 20, 10);
 dirLight.castShadow = true;
 dirLight.shadow.mapSize.set(2048, 2048);
@@ -439,7 +502,7 @@ dirLight.shadow.camera.top    =  50;
 dirLight.shadow.camera.bottom = -50;
 scene.add(dirLight);
 
-const fillLight = new THREE.DirectionalLight(0x8888ff, 0.5);
+const fillLight = new THREE.DirectionalLight(blueMono.fillLight, 0.6);
 fillLight.position.set(-10, 10, -10);
 scene.add(fillLight);
 
@@ -460,7 +523,7 @@ const screenScene = new THREE.Scene();
 screenScene.add(
   new THREE.Mesh(
     new THREE.PlaneGeometry(2, 2),
-    new THREE.MeshBasicMaterial({ color: 0xffffff })
+    new THREE.MeshBasicMaterial({ color: blueMono.pixelBg })
   )
 );
 
@@ -491,6 +554,7 @@ const manager = new THREE.LoadingManager(
     allObjects.forEach(o => { o.visible = false; });
 
     loadingOverlay.style.display = 'none';
+    initDimensionFrameOverlay();
     startRenderLoop();
   },
   (url, loaded, total) => {
@@ -543,31 +607,112 @@ function setObjectOpacity(object3D, opacity) {
   });
 }
 
+function buildAxisValues(min, max, step) {
+  const values = [min];
+  const span = max - min;
+  const safeStep = Math.max(step, 1e-6);
+  if (span <= 1e-6) return values;
+  for (let v = min + safeStep; v < max - 1e-6; v += safeStep) {
+    values.push(v);
+  }
+  values.push(max);
+  return values;
+}
+
 // ─────────────────────────────────────────────
 // GRID WIREFRAME
 // ─────────────────────────────────────────────
 
 function createGridWireframe(boundingBox) {
-  const size        = new THREE.Vector3();
+  const size = new THREE.Vector3();
   boundingBox.getSize(size);
-  const lineSpacing = size.x;
-  const steps       = size.z / 8;
-  const vertices    = [];
+  const center = new THREE.Vector3();
+  boundingBox.getCenter(center);
+  const xStep = Math.max(size.x / 2, 1e-6);
+  const yStep = Math.max(size.y / 2, 1e-6);
+  const zStep = Math.max(size.z / 4, 1e-6);
+  const xValues = buildAxisValues(boundingBox.min.x, boundingBox.max.x, xStep);
+  const yValues = buildAxisValues(boundingBox.min.y, boundingBox.max.y, yStep);
+  if (yValues.length >= 2) {
+    // Add one extra horizontal band between top and the next lower band.
+    const top = yValues[yValues.length - 1];
+    const belowTop = yValues[yValues.length - 2];
+    yValues.push((top + belowTop) * 0.5);
+    yValues.sort((a, b) => a - b);
+  }
+  const zValues = buildAxisValues(boundingBox.min.z, boundingBox.max.z, zStep);
+  const vertices = [];
 
-  for (let z = boundingBox.min.z; z <= boundingBox.max.z; z += steps) {
-    for (let y = boundingBox.min.y; y <= boundingBox.max.y; y += lineSpacing)
+  for (let zi = 0; zi < zValues.length; zi++) {
+    const z = zValues[zi];
+    for (let yi = 0; yi < yValues.length; yi++) {
+      const y = yValues[yi];
       vertices.push(boundingBox.min.x, y, z, boundingBox.max.x, y, z);
-    for (let x = boundingBox.min.x; x <= boundingBox.max.x; x += lineSpacing)
+    }
+    for (let xi = 0; xi < xValues.length; xi++) {
+      const x = xValues[xi];
       vertices.push(x, boundingBox.min.y, z, x, boundingBox.max.y, z);
+    }
   }
 
-  for (let y = boundingBox.min.y; y <= boundingBox.max.y; y += lineSpacing)
-    for (let x = boundingBox.min.x; x <= boundingBox.max.x; x += lineSpacing)
+  for (let yi = 0; yi < yValues.length; yi++) {
+    const y = yValues[yi];
+    for (let xi = 0; xi < xValues.length; xi++) {
+      const x = xValues[xi];
       vertices.push(x, y, boundingBox.min.z, x, y, boundingBox.max.z);
+    }
+  }
+
+  // Extra center guides so a line cuts through the reserved cube area.
+  const cutY = reservedCube ? reservedCube.position.y : -2;
+  vertices.push(
+    boundingBox.min.x, cutY, center.z, boundingBox.max.x, cutY, center.z, // X-axis center cut
+    center.x, cutY, boundingBox.min.z, center.x, cutY, boundingBox.max.z, // Z-axis center cut
+  );
 
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-  scene.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xffffff })));
+  scene.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: blueMono.gridLine })));
+}
+
+function createGroundWireGrid(boundingBox) {
+  const size = new THREE.Vector3();
+  boundingBox.getSize(size);
+  const center = new THREE.Vector3();
+  boundingBox.getCenter(center);
+
+  // Match spacing logic from createGridWireframe.
+  const xStep = Math.max(size.x / 2, 1e-6);
+  const zStep = Math.max(size.z / 4, 1e-6);
+
+  // Make floor lines much longer than the point-cloud bounds.
+  const floorExtentScale = 14;
+  const floorMinX = center.x - (size.x * floorExtentScale) * 0.5;
+  const floorMaxX = center.x + (size.x * floorExtentScale) * 0.5;
+  const floorMinZ = center.z - (size.z * floorExtentScale) * 0.5;
+  const floorMaxZ = center.z + (size.z * floorExtentScale) * 0.5;
+
+  const xValues = buildAxisValues(floorMinX, floorMaxX, xStep);
+  const zValues = buildAxisValues(floorMinZ, floorMaxZ, zStep);
+  const y = boundingBox.min.y;
+  const vertices = [];
+
+  for (let zi = 0; zi < zValues.length; zi++) {
+    const z = zValues[zi];
+    vertices.push(floorMinX, y, z, floorMaxX, y, z);
+  }
+  for (let xi = 0; xi < xValues.length; xi++) {
+    const x = xValues[xi];
+    vertices.push(x, y, floorMinZ, x, y, floorMaxZ);
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+  scene.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({
+    color: blueMono.gridLine,
+    transparent: true,
+    opacity: 0.8,
+  })));
 }
 
 // ─────────────────────────────────────────────
@@ -583,7 +728,7 @@ function addPixelGrid(resolution = 32) {
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-  screenScene.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0x000000 })));
+  screenScene.add(new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: blueMono.pixelLine })));
 }
 
 // ─────────────────────────────────────────────
@@ -595,7 +740,12 @@ let reservedCube = null;
 function createReservedCube() {
   reservedCube = new THREE.Mesh(
     new THREE.BoxGeometry(0.6, 0.6, 0.6),
-    new THREE.MeshBasicMaterial({ map: renderTarget.texture, transparent: true, opacity: 1 })
+    new THREE.MeshBasicMaterial({
+      map: renderTarget.texture,
+      color: blueMono.reservedTint,
+      transparent: true,
+      opacity: 1,
+    })
   );
   reservedCube.position.set(0, -2, 0);
   reservedCube.rotation.x   = -Math.PI / 2;
@@ -612,7 +762,9 @@ function createReservedCube() {
 let cubes        = null;
 let instanceData = null;
 let bridgeDebugMesh = null;
-const bridgeDebugState = { opacity: 0.45 };
+const bridgeDebugState = { opacity: 1.0 };
+let dimensionFrameTimeline = null;
+const dimensionFrameAnimationEnabled = true;
 
 function alignBridgeDebugMeshToFlipGridCenter() {
   if (!bridgeDebugMesh || !flipGrid) return;
@@ -621,9 +773,90 @@ function alignBridgeDebugMeshToFlipGridCenter() {
 }
 
 function setBridgeDebugMeshOpacity(opacity) {
-  bridgeDebugState.opacity = opacity;
+  const clamped = THREE.MathUtils.clamp(opacity, 0, 1);
+  bridgeDebugState.opacity = clamped;
   if (!bridgeDebugMesh) return;
-  setObjectOpacity(bridgeDebugMesh, opacity);
+  forEachObjectMaterial(bridgeDebugMesh, (material) => {
+    const blended = clamped < 0.999;
+    material.opacity = clamped;
+    if (material.transparent !== blended) {
+      material.transparent = blended;
+      material.needsUpdate = true;
+    }
+    material.depthWrite = !blended;
+  });
+}
+
+function initDimensionFrameOverlay() {
+  const layers = [
+    document.getElementById('dimension-layer-4d'),
+    document.getElementById('dimension-layer-3d'),
+    document.getElementById('dimension-layer-2d'),
+    document.getElementById('dimension-layer-1d'),
+  ];
+  if (layers.some(layer => !layer)) return;
+
+  const baseDurations = [4, 8, 14, 20]; // 4D -> 1D
+  const durationScales = [1,1,1,1]; // 4D -> 1D
+  const scaleDurations = baseDurations.map((d, i) => d * durationScales[i]);
+  const cycleDuration = Math.max(...scaleDurations);
+  const targetInsets = [10, 20, 30, 40];
+  const startInsets = [0, 0, 0, 0];
+  const insetStates = targetInsets.map((target, i) => ({
+    value: target,
+    target,
+    start: startInsets[i],
+  }));
+
+  const applyInset = (layerIndex) => {
+    const insetValue = insetStates[layerIndex].value;
+    layers[layerIndex].style.inset = `${insetValue}%`;
+  };
+
+  const resetLayers = () => {
+    for (let i = 0; i < layers.length; i++) {
+      const layer = layers[i];
+      layer.style.visibility = 'visible';
+      insetStates[i].value = insetStates[i].start;
+      applyInset(i);
+    }
+  };
+
+  if (dimensionFrameTimeline) {
+    dimensionFrameTimeline.kill();
+    dimensionFrameTimeline = null;
+  }
+
+  resetLayers();
+
+  if (!dimensionFrameAnimationEnabled) {
+    for (let i = 0; i < layers.length; i++) {
+      insetStates[i].value = insetStates[i].target;
+      applyInset(i);
+    }
+    return;
+  }
+
+  dimensionFrameTimeline = gsap.timeline({
+    repeat: -1,
+    yoyo: true,
+    defaults: { overwrite: 'auto' },
+  });
+
+  for (let i = 0; i < layers.length; i++) {
+    dimensionFrameTimeline.fromTo(insetStates[i], {
+      value: insetStates[i].start,
+    }, {
+      value: insetStates[i].target,
+      duration: scaleDurations[i],
+      ease: 'sine.inOut',
+      onUpdate: () => applyInset(i),
+    }, 0);
+  }
+
+  dimensionFrameTimeline.to({}, {
+    duration: 0.001,
+  }, cycleDuration);
 }
 
 function loadBridgeDebugMesh(url) {
@@ -644,14 +877,17 @@ function loadBridgeDebugMesh(url) {
     // Debug alignment scale for bridge mesh vs point-cloud cubes.
     model.scale.setScalar(70);
 
-    // Make it semi-transparent for side-by-side visual debugging.
+    // Start fully solid; animation can still fade it out later.
     model.traverse((child) => {
       if (!child.isMesh || !child.material) return;
       const mats = Array.isArray(child.material) ? child.material : [child.material];
       mats.forEach((mat) => {
-        mat.transparent = true;
+        mat.transparent = false;
         mat.opacity = bridgeDebugState.opacity;
-        mat.depthWrite = false;
+        mat.depthWrite = true;
+        if ('map' in mat && mat.map) mat.map = null;
+        if ('color' in mat && mat.color) mat.color.setHex(blueMono.model);
+        if ('emissive' in mat && mat.emissive) mat.emissive.setHex(blueMono.emissiveBridge);
         mat.needsUpdate = true;
       });
     });
@@ -702,8 +938,11 @@ function loadPointCloud() {
 
     const count   = positions.length / 3;
     const cubeMat = new THREE.MeshStandardMaterial({
-      color: 0xffffff, roughness: 0.7, metalness: 0.3,
+      color: blueMono.pointCloud,
+      roughness: 0.8,
+      metalness: 0.2,
       transparent: true, opacity: 1, depthWrite: false, depthTest: true,
+      wireframe: false,
     });
 
     cubes = new THREE.InstancedMesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), cubeMat, count);
@@ -732,6 +971,7 @@ function loadPointCloud() {
 
     const box3 = new THREE.Box3().setFromObject(cubes);
     createGridWireframe(box3);
+    // createGroundWireGrid(box3);
     loadBridgeDebugMesh('public/bridge.glb');
 
     dirLight.shadow.camera.left   = box3.min.x - 10;
@@ -761,9 +1001,10 @@ const cam = {
   height: 20,
   fov: 75,
 };
+let cameraLoopTimeline = null;
 
 function applyCameraFromState() {
-  if (!cam.active) return;
+  if (!cam.active || controls.enabled) return;
   camera.position.set(
     cam.target.x + Math.cos(cam.angle) * cam.radius,
     cam.target.y + cam.height,
@@ -776,7 +1017,37 @@ function applyCameraFromState() {
   camera.lookAt(cam.target);
 }
 
+function resetLoopSceneState(bridgeOpacity) {
+  cam.angle = 0;
+  cam.radius = 40;
+  cam.height = 20;
+  cam.fov = 75;
+  applyCameraFromState();
+
+  showStaticSideFaces();
+  if (bridgeDebugMesh) {
+    bridgeDebugMesh.visible = true;
+  }
+  setBridgeDebugMeshOpacity(bridgeOpacity);
+
+  if (cubes?.material) {
+    cubes.material.opacity = 0;
+  }
+  if (reservedCube?.material) {
+    reservedCube.material.opacity = 1;
+  }
+
+  applyFlipGridDepth(flipTileDepthStart);
+  setFlipGridOpacity(1);
+  resetFlipCascadeState(false);
+}
+
 function animateCameraToCube() {
+  if (cameraLoopTimeline) {
+    cameraLoopTimeline.kill();
+    cameraLoopTimeline = null;
+  }
+
   cam.active = true;
   applyCameraFromState();
   const introBridgeHold = 1.2;
@@ -784,8 +1055,8 @@ function animateCameraToCube() {
   const crossFadeOverlap = bridgeFadeDuration;
   const staticSideFadeOffset = 5.0;
   const staticSideFadeDuration = 2.0;
+  const flipRestartOffset = 10.0;
   const cubesFadeInDuration = 8.0;
-  const cubesFadeOutStartOffset = 0.0;
   const cubesFadeOutDuration = 8.0;
   const bridgeFadeEase = 'none';
   const bridgeFadeStart = introBridgeHold;
@@ -795,15 +1066,28 @@ function animateCameraToCube() {
   const cameraPreAngle = 0.18;
   const cameraPreRadius = 42;
   const cameraPreHeight = 19;
+  const cameraZoomStart = cameraMoveStart + 5;
+  const cameraZoomDuration = 15;
   const cubesFadeOutStart = cameraMoveStart;
-  const bridgeStartOpacity = 0.45;
+  const bridgeStartOpacity = 1.0;
+  const flipThinStart = cameraZoomStart + cameraZoomDuration;
+  const flipThinDuration = 3;
+  const flipFadeOutDuration = 0.2;
+  const flipFadeOutStart = flipThinStart + flipThinDuration;
+  const returnStart = flipFadeOutStart + flipFadeOutDuration;
+  const returnDuration = 6.0;
+  const cycleEnd = returnStart + returnDuration;
   const bridgeFade = { opacity: bridgeStartOpacity };
-  showStaticSideFaces();
-  setBridgeDebugMeshOpacity(bridgeStartOpacity);
-  if (bridgeDebugMesh) bridgeDebugMesh.visible = true;
-  if (cubes?.material) cubes.material.opacity = 0;
-
-  gsap.timeline()
+  resetLoopSceneState(bridgeStartOpacity);
+  cameraLoopTimeline = gsap.timeline({
+    repeat: -1,
+    defaults: { overwrite: 'auto' },
+    onRepeat: () => {
+      bridgeFade.opacity = bridgeStartOpacity;
+      resetLoopSceneState(bridgeStartOpacity);
+    },
+  })
+    .call(() => resetFlipCascadeState(true), [], flipRestartOffset)
     .call(() => fadeOutStaticSideFaces(staticSideFadeDuration), [], cameraMoveStart + staticSideFadeOffset)
     .to(cam, {
       angle: cameraPreAngle,
@@ -823,12 +1107,13 @@ function animateCameraToCube() {
       duration: 8, ease: 'sine.inOut',
     }, cameraMoveStart)
     .to(cubes?.material ?? {}, {
-      opacity: 1, duration: cubesFadeInDuration, ease: 'power2.out',
+      opacity: 1, duration: cubesFadeInDuration, ease: 'power2.out', overwrite: false,
     }, revealStart)
     .to(cubes?.material ?? {}, {
       opacity: 0,
       duration: cubesFadeOutDuration,
       ease: 'power1.inOut',
+      overwrite: false,
     }, cubesFadeOutStart)
     .to(reservedCube?.material ?? {}, {
       opacity: 0,
@@ -836,16 +1121,69 @@ function animateCameraToCube() {
       ease: 'power1.out',
     }, cameraMoveStart + 6)
     .to(cam, {
-      radius: 0.4,
-      duration: 15,
+      radius: 0.45,
+      duration: cameraZoomDuration,
       ease: 'power1.out',
-    }, cameraMoveStart + 5)
+    }, cameraZoomStart)
+    .to(flipTileDepthState, {
+      value: flipTileDepthEnd,
+      duration: flipThinDuration,
+      ease: 'power1.out',
+      onUpdate: () => applyFlipGridDepth(flipTileDepthState.value),
+    }, flipThinStart - 2)
+    .to(flipGrid?.material?.uniforms?.uOpacity ?? {}, {
+      value: 0,
+      duration: flipFadeOutDuration,
+      ease: 'power1.out',
+      onUpdate: () => {
+        if (flipGrid?.material?.uniforms?.uOpacity) {
+          setFlipGridOpacity(flipGrid.material.uniforms.uOpacity.value);
+        }
+      },
+      onComplete: () => {
+        if (flipGrid) flipGrid.visible = false;
+      },
+    }, flipFadeOutStart)
     // Gradually move toward ~85mm full-frame equivalent (vertical FOV ~16deg).
     .to(cam, {
       fov: 16,
-      duration: 12,
+      duration: cameraZoomDuration,
       ease: 'power1.out',
-    }, cameraMoveStart + 5)
+    }, cameraZoomStart)
+    .to(cam, {
+      angle: 0,
+      radius: 40,
+      height: 20,
+      fov: 75,
+      duration: returnDuration,
+      ease: 'sine.inOut',
+    }, returnStart)
+    .to(bridgeFade, {
+      opacity: bridgeStartOpacity,
+      duration: returnDuration * 0.8,
+      ease: 'sine.inOut',
+      onUpdate: () => setBridgeDebugMeshOpacity(bridgeFade.opacity),
+      onStart: () => {
+        if (bridgeDebugMesh) bridgeDebugMesh.visible = true;
+      },
+    }, returnStart + 0.2)
+    .to(reservedCube?.material ?? {}, {
+      opacity: 1,
+      duration: returnDuration * 0.5,
+      ease: 'sine.inOut',
+    }, returnStart)
+    .to(cubes?.material ?? {}, {
+      opacity: 0,
+      duration: 1.0,
+      ease: 'power1.out',
+    }, returnStart)
+    .to(flipTileDepthState, {
+      value: flipTileDepthStart,
+      duration: returnDuration * 0.6,
+      ease: 'sine.inOut',
+      onUpdate: () => applyFlipGridDepth(flipTileDepthState.value),
+    }, returnStart)
+    .to({}, { duration: 0.01 }, cycleEnd)
     ;
 }
 
@@ -857,11 +1195,14 @@ function loadRunwayHuman3D(url) {
 
   new FBXLoader(manager).load(url, (object) => {
     const model = object;
-    normalizeModel(model, 0.65);
-    model.position.set(0, -2.45, 1);
+    normalizeModel(model, 0.6);
+    model.position.set(0, -2.35, 1);
     model.rotation.set(Math.PI, 0, Math.PI);
     forEachObjectMaterial(model, (material) => {
       material.flatShading = true;
+      if ('map' in material && material.map) material.map = null;
+      if ('color' in material && material.color) material.color.setHex(blueMono.model);
+      if ('emissive' in material && material.emissive) material.emissive.setHex(blueMono.emissiveModel);
       material.needsUpdate = true;
     });
     prepareObjectForFade(model);
@@ -1016,35 +1357,18 @@ function renderLoop() {
     flipState.elapsed += delta;
     const totalDuration = flipData.totalDuration || ((Math.max(...flipData.delays)) + (Math.PI / 2) / flipState.speed);
     flipState.spacingProgress = Math.min(1, flipState.elapsed / totalDuration);
-    
-    const { cols, rows } = flipConfig;
+
     const count = flipData.angles.length;
-    const dummy = new THREE.Object3D();
-    
+
     // Update each tile's rotation angle
     for (let i = 0; i < count; i++) {
       const timeIntoFlip = flipState.elapsed - flipData.delays[i];
       if (timeIntoFlip > 0) {
         flipData.angles[i] = Math.min(Math.PI / 2, timeIntoFlip * flipState.speed);
       }
-      
-      // Apply rotation to instance matrix
-      const row = Math.floor(i / cols);
-      const col = i % cols;
-      const baseStep = flipConfig.size / 100;
-      const tightStep = baseStep * 0.95;
-      const tileStep = THREE.MathUtils.lerp(baseStep, tightStep, flipState.spacingProgress);
-      const x = (col - cols / 2 + 0.5) * tileStep;
-      const y = (row - rows / 2 + 0.5) * tileStep;
-      
-      dummy.position.set(x, y, 0);
-      dummy.rotation.set(flipData.angles[i], 0, 0);
-      dummy.updateMatrix();
-      flipGrid.setMatrixAt(i, dummy.matrix);
     }
-    
-    flipGrid.instanceMatrix.needsUpdate = true;
-    
+    updateFlipGridInstanceMatrices();
+
     // Stop animating when last row has finished
     if (flipState.elapsed > totalDuration) {
       flipState.isAnimating = false;
@@ -1066,6 +1390,9 @@ function renderLoop() {
 
   // ── Camera ──
   applyCameraFromState();
+  if (controls.enabled) {
+    controls.update();
+  }
 
   // ── Off-screen render target ──
   renderer.setRenderTarget(renderTarget);
