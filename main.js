@@ -70,7 +70,7 @@ function initFlipVideo() {
 
   flipConfig.video.load();
 
-  gsap.delayedCall(5, () => {
+  gsap.delayedCall(10, () => {
     flipState.isAnimating = true;
     flipState.elapsed = 0;
     flipState.spacingProgress = 0;
@@ -94,6 +94,8 @@ let lastVideoTime = -1;
 let flipStaticSideFaces = [];
 let staticSidesBuilt = false;
 let staticSidesHidden = false;
+let staticSidesFadePending = false;
+let staticSidesPendingFadeDuration = 0.8;
 let flipCenterRowLine = null;
 let flipCenterRowLineShown = false;
 let flipState = {
@@ -313,6 +315,50 @@ function createStaticFlipGridSides() {
   // Keep dynamic front flip plane visible.
   flipGrid.visible = true;
   staticSidesBuilt = true;
+  if (staticSidesFadePending && !staticSidesHidden) {
+    fadeOutStaticSideFaces(staticSidesPendingFadeDuration);
+  }
+}
+
+function showStaticSideFaces() {
+  staticSidesHidden = false;
+  staticSidesFadePending = false;
+  for (let i = 0; i < flipStaticSideFaces.length; i++) {
+    const face = flipStaticSideFaces[i];
+    face.visible = true;
+    const mat = face.material;
+    if (mat?.uniforms?.uOpacity) {
+      gsap.killTweensOf(mat.uniforms.uOpacity);
+      mat.uniforms.uOpacity.value = 1.0;
+    }
+  }
+}
+
+function fadeOutStaticSideFaces(duration = 0.8) {
+  if (staticSidesHidden) return;
+  staticSidesPendingFadeDuration = duration;
+  staticSidesFadePending = true;
+  if (!flipStaticSideFaces.length) return;
+
+  staticSidesFadePending = false;
+  staticSidesHidden = true;
+  for (let i = 0; i < flipStaticSideFaces.length; i++) {
+    const face = flipStaticSideFaces[i];
+    const mat = face.material;
+    if (mat?.uniforms?.uOpacity) {
+      gsap.killTweensOf(mat.uniforms.uOpacity);
+      gsap.to(mat.uniforms.uOpacity, {
+        value: 0,
+        duration,
+        ease: 'power2.out',
+        onComplete: () => {
+          face.visible = false;
+        },
+      });
+    } else {
+      face.visible = false;
+    }
+  }
 }
 
 // function createFlipCenterRowLine() {
@@ -358,7 +404,7 @@ const state = {
 // ─────────────────────────────────────────────
 
 const scene  = new THREE.Scene();
-scene.background = new THREE.Color(0xffffff);
+scene.background = new THREE.Color(0x000000);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.03, 1000);
 camera.position.set(5, 5, 5);
@@ -566,11 +612,18 @@ function createReservedCube() {
 let cubes        = null;
 let instanceData = null;
 let bridgeDebugMesh = null;
+const bridgeDebugState = { opacity: 0.45 };
 
 function alignBridgeDebugMeshToFlipGridCenter() {
   if (!bridgeDebugMesh || !flipGrid) return;
   bridgeDebugMesh.position.copy(flipGrid.position);
   bridgeDebugMesh.position.y += 4.5;
+}
+
+function setBridgeDebugMeshOpacity(opacity) {
+  bridgeDebugState.opacity = opacity;
+  if (!bridgeDebugMesh) return;
+  setObjectOpacity(bridgeDebugMesh, opacity);
 }
 
 function loadBridgeDebugMesh(url) {
@@ -597,13 +650,14 @@ function loadBridgeDebugMesh(url) {
       const mats = Array.isArray(child.material) ? child.material : [child.material];
       mats.forEach((mat) => {
         mat.transparent = true;
-        mat.opacity = 0.45;
+        mat.opacity = bridgeDebugState.opacity;
         mat.depthWrite = false;
         mat.needsUpdate = true;
       });
     });
 
     bridgeDebugMesh = model;
+    setBridgeDebugMeshOpacity(bridgeDebugState.opacity);
     alignBridgeDebugMeshToFlipGridCenter();
     scene.add(model);
   });
@@ -655,8 +709,9 @@ function loadPointCloud() {
     cubes = new THREE.InstancedMesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), cubeMat, count);
     cubes.castShadow = cubes.receiveShadow = true;
     cubes.rotation.x = 0;
-    cubes.rotation.y = Math.PI / 2;
+    cubes.rotation.y = 0;
     cubes.rotation.z = 0;
+    cubes.position.y += 3;
     scene.add(cubes);
 
     const rotations = new Float32Array(count * 3);
@@ -724,31 +779,73 @@ function applyCameraFromState() {
 function animateCameraToCube() {
   cam.active = true;
   applyCameraFromState();
+  const introBridgeHold = 1.2;
+  const bridgeFadeDuration = 4;
+  const crossFadeOverlap = bridgeFadeDuration;
+  const staticSideFadeOffset = 5.0;
+  const staticSideFadeDuration = 2.0;
+  const cubesFadeInDuration = 8.0;
+  const cubesFadeOutStartOffset = 0.0;
+  const cubesFadeOutDuration = 8.0;
+  const bridgeFadeEase = 'none';
+  const bridgeFadeStart = introBridgeHold;
+  const bridgeFadeEnd = bridgeFadeStart + bridgeFadeDuration;
+  const revealStart = Math.max(bridgeFadeStart, bridgeFadeEnd - crossFadeOverlap);
+  const cameraMoveStart = bridgeFadeEnd * 0.5;
+  const cameraPreAngle = 0.18;
+  const cameraPreRadius = 42;
+  const cameraPreHeight = 19;
+  const cubesFadeOutStart = cameraMoveStart;
+  const bridgeStartOpacity = 0.45;
+  const bridgeFade = { opacity: bridgeStartOpacity };
+  showStaticSideFaces();
+  setBridgeDebugMeshOpacity(bridgeStartOpacity);
+  if (bridgeDebugMesh) bridgeDebugMesh.visible = true;
+  if (cubes?.material) cubes.material.opacity = 0;
 
   gsap.timeline()
+    .call(() => fadeOutStaticSideFaces(staticSideFadeDuration), [], cameraMoveStart + staticSideFadeOffset)
+    .to(cam, {
+      angle: cameraPreAngle,
+      radius: cameraPreRadius,
+      height: cameraPreHeight,
+      duration: cameraMoveStart,
+      ease: 'sine.inOut',
+    }, 0)
+    .to(bridgeFade, {
+      opacity: 0,
+      duration: bridgeFadeDuration,
+      ease: bridgeFadeEase,
+      onUpdate: () => setBridgeDebugMeshOpacity(bridgeFade.opacity),
+    }, bridgeFadeStart)
     .to(cam, {
       angle: Math.PI, radius: 1, height: 0,
-      duration: 8, ease: 'power2.inOut',
-    }, 0)
+      duration: 8, ease: 'sine.inOut',
+    }, cameraMoveStart)
     .to(cubes?.material ?? {}, {
-      opacity: 0.01, duration: 6, ease: 'power2.inOut',
-    }, 0)
+      opacity: 1, duration: cubesFadeInDuration, ease: 'power2.out',
+    }, revealStart)
+    .to(cubes?.material ?? {}, {
+      opacity: 0,
+      duration: cubesFadeOutDuration,
+      ease: 'power1.inOut',
+    }, cubesFadeOutStart)
     .to(reservedCube?.material ?? {}, {
       opacity: 0,
       duration: 0.8,
       ease: 'power1.out',
-    }, 6)
+    }, cameraMoveStart + 6)
     .to(cam, {
       radius: 0.4,
-      duration: 12,
+      duration: 15,
       ease: 'power1.out',
-    }, 5)
+    }, cameraMoveStart + 5)
     // Gradually move toward ~85mm full-frame equivalent (vertical FOV ~16deg).
     .to(cam, {
       fov: 16,
       duration: 12,
       ease: 'power1.out',
-    }, 5)
+    }, cameraMoveStart + 5)
     ;
 }
 
@@ -791,7 +888,7 @@ function loadRunwayHuman3D(url) {
       fadeState: { opacity: 0 },
     };
 
-    gsap.delayedCall(4, () => {
+    gsap.delayedCall(8, () => {
       requestAnimationFrame(() => {
         state.threeDScene.isFadingOut = false;
         state.threeDScene.fadeState.opacity = 0;
@@ -916,27 +1013,6 @@ function renderLoop() {
 
   // ── WebGL flip grid animation ──
   if (flipGrid && flipGrid.visible && flipData && flipState.isAnimating) {
-    if (!staticSidesHidden && flipStaticSideFaces.length) {
-      for (let i = 0; i < flipStaticSideFaces.length; i++) {
-        const face = flipStaticSideFaces[i];
-        const mat = face.material;
-        if (mat?.uniforms?.uOpacity) {
-          gsap.killTweensOf(mat.uniforms.uOpacity);
-          gsap.to(mat.uniforms.uOpacity, {
-            value: 0,
-            duration: 0.8,
-            ease: 'power2.out',
-            onComplete: () => {
-              face.visible = false;
-            },
-          });
-        } else {
-          face.visible = false;
-        }
-      }
-      staticSidesHidden = true;
-    }
-
     flipState.elapsed += delta;
     const totalDuration = flipData.totalDuration || ((Math.max(...flipData.delays)) + (Math.PI / 2) / flipState.speed);
     flipState.spacingProgress = Math.min(1, flipState.elapsed / totalDuration);
