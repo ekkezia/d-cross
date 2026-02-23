@@ -766,6 +766,11 @@ const bridgeDebugState = { opacity: 1.0 };
 let dimensionFrameTimeline = null;
 const dimensionFrameAnimationEnabled = true;
 
+function restartDimensionFrameTimeline() {
+  if (!dimensionFrameAnimationEnabled || !dimensionFrameTimeline) return;
+  dimensionFrameTimeline.restart(true);
+}
+
 function alignBridgeDebugMeshToFlipGridCenter() {
   if (!bridgeDebugMesh || !flipGrid) return;
   bridgeDebugMesh.position.copy(flipGrid.position);
@@ -796,9 +801,10 @@ function initDimensionFrameOverlay() {
   ];
   if (layers.some(layer => !layer)) return;
 
-  const baseDurations = [4, 8, 14, 20]; // 4D -> 1D
-  const durationScales = [1,1,1,1]; // 4D -> 1D
-  const scaleDurations = baseDurations.map((d, i) => d * durationScales[i]);
+  const baseDurations = [4, 8, 16, 24]; // 4D -> 1D
+  const resetDuration = 3.0; // quick animated return to inset 0
+  const durationScales = [1, 1, 1, 1]; // 4D -> 1D
+  const scaleDurations = baseDurations.slice(0, layers.length).map((d, i) => d * durationScales[i]);
   const cycleDuration = Math.max(...scaleDurations);
   const targetInsets = [10, 20, 30, 40];
   const startInsets = [0, 0, 0, 0];
@@ -838,8 +844,7 @@ function initDimensionFrameOverlay() {
   }
 
   dimensionFrameTimeline = gsap.timeline({
-    repeat: -1,
-    yoyo: true,
+    paused: true,
     defaults: { overwrite: 'auto' },
   });
 
@@ -854,9 +859,17 @@ function initDimensionFrameOverlay() {
     }, 0);
   }
 
-  dimensionFrameTimeline.to({}, {
-    duration: 0.001,
-  }, cycleDuration);
+  // After all frames reach their final insets, quickly reset all to start together.
+  for (let i = 0; i < layers.length; i++) {
+    dimensionFrameTimeline.to(insetStates[i], {
+      value: insetStates[i].start,
+      duration: resetDuration,
+      ease: 'power2.inOut',
+      onUpdate: () => applyInset(i),
+    }, cycleDuration);
+  }
+
+  restartDimensionFrameTimeline();
 }
 
 function loadBridgeDebugMesh(url) {
@@ -1087,6 +1100,7 @@ function animateCameraToCube() {
       resetLoopSceneState(bridgeStartOpacity);
     },
   })
+    .call(() => restartDimensionFrameTimeline(), [], 0)
     .call(() => resetFlipCascadeState(true), [], flipRestartOffset)
     .call(() => fadeOutStaticSideFaces(staticSideFadeDuration), [], cameraMoveStart + staticSideFadeOffset)
     .to(cam, {
@@ -1176,6 +1190,7 @@ function animateCameraToCube() {
       opacity: 0,
       duration: 1.0,
       ease: 'power1.out',
+      overwrite: false,
     }, returnStart)
     .to(flipTileDepthState, {
       value: flipTileDepthStart,
@@ -1183,7 +1198,22 @@ function animateCameraToCube() {
       ease: 'sine.inOut',
       onUpdate: () => applyFlipGridDepth(flipTileDepthState.value),
     }, returnStart)
-    .to({}, { duration: 0.01 }, cycleEnd)
+    .to(flipGrid?.material?.uniforms?.uOpacity ?? {}, {
+      value: 1,
+      duration: returnDuration * 0.45,
+      ease: 'sine.inOut',
+      onStart: () => {
+        if (flipGrid) flipGrid.visible = true;
+      },
+      onUpdate: () => {
+        if (flipGrid?.material?.uniforms?.uOpacity) {
+          setFlipGridOpacity(flipGrid.material.uniforms.uOpacity.value);
+        }
+      },
+    }, returnStart)
+    .to({}, {
+      duration: 0.01,
+    }, cycleEnd)
     ;
 }
 
