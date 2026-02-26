@@ -22,8 +22,8 @@ def load_single_mesh(path: str) -> trimesh.Trimesh:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Convert mesh to sampled point cloud JSON.")
-    parser.add_argument("--input", default="public/bridge.glb", help="Input mesh path (GLB/GLTF/OBJ/FBX-supported by trimesh).")
-    parser.add_argument("--output", default="pointcloud.json", help="Output JSON path.")
+    parser.add_argument("--input", default="public/3d-model-human.glb", help="Input mesh path (GLB/GLTF/OBJ/FBX-supported by trimesh).")
+    parser.add_argument("--output", default="public/pointcloud-human.json", help="Output JSON path.")
     parser.add_argument("--num-points", type=int, default=10000, help="Number of surface sample points.")
     parser.add_argument("--scale", type=float, default=1.0, help="Uniform scale applied before sampling.")
     parser.add_argument("--rot-x-deg", type=float, default=0.0, help="Rotation X in degrees.")

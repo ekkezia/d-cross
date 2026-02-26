@@ -115,6 +115,167 @@
       mix-blend-mode: overlay;
       opacity: 0.5;
     }
+    #timeline-controls {
+      position: fixed;
+      left: 1rem;
+      right: 1rem;
+      bottom: 1rem;
+      z-index: 120;
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      padding: 0.55rem 0.7rem;
+      border: 1px solid rgba(194, 191, 255, 0.45);
+      background: rgba(7, 3, 54, 0.72);
+      backdrop-filter: blur(6px);
+      color: #dbd9ff;
+      box-sizing: border-box;
+    }
+    #timeline-controls button {
+      border: 1px solid rgba(194, 191, 255, 0.55);
+      background: rgba(12, 8, 84, 0.9);
+      color: #dbd9ff;
+      padding: 0.4rem 0.7rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-family: inherit;
+    }
+    #timeline-controls button:hover {
+      background: rgba(17, 12, 112, 0.95);
+    }
+    #timeline-scrubber {
+      flex: 1;
+      min-width: 10rem;
+    }
+    #timeline-time {
+      min-width: 8rem;
+      text-align: right;
+      font-size: 0.82rem;
+      opacity: 0.9;
+    }
+    /* ── Frame-anchored text overlay ── */
+    #frame-text-overlay {
+      pointer-events: none;
+      user-select: none;
+    }
+    #text-title {
+      position: fixed;
+      left: 10%;
+      top: 5%;
+      font-size: clamp(1.1rem, 2vw, 2.2rem);
+      font-weight: 700;
+      color: #DBD9FF;
+      letter-spacing: 0.04em;
+      z-index: 70;
+      line-height: 1.1;
+    }
+    #text-event {
+      position: fixed;
+      right: 10%;
+      top: 5%;
+      text-align: right;
+      font-size: clamp(0.5rem, 0.75vw, 0.78rem);
+      color: #DBD9FF;
+      letter-spacing: 0.07em;
+      z-index: 70;
+      display: flex;
+      flex-direction: column;
+      gap: 0.15em;
+      line-height: 1.4;
+    }
+    /* Shanghai Venue – 3D frame top-right corner (right:20%, top:20%) */
+    #text-venue {
+      position: fixed;
+      right: 10%; /* spans from 4D right edge inward to 3D right edge */
+      top: 20%;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      z-index: 70;
+    }
+    #text-venue .tag-label {
+      font-size: clamp(0.5rem, 0.75vw, 0.78rem);
+      color: #DBD9FF;
+      letter-spacing: 0.07em;
+      margin-bottom: 0.3rem;
+    }
+    #text-venue .tag-row {
+      display: flex;
+      align-items: center;
+      width: 10vw;
+    }
+    #text-venue .tag-line {
+      flex: 1;
+      height: 1px;
+      background: #DBD9FF;
+      opacity: 0.7;
+    }
+    #text-venue .tag-dot {
+      width: 5px;
+      height: 5px;
+      background: #DBD9FF;
+      flex-shrink: 0;
+    }
+    /* Date – 3D frame bottom-left corner (left:20%, bottom:20%) */
+    #text-date {
+      position: fixed;
+      left: 10%; /* spans from 4D left edge inward to 3D left edge */
+      bottom: 20%;
+      display: flex;
+      flex-direction: column;
+      z-index: 70;
+    }
+    #text-date .tag-row {
+      display: flex;
+      align-items: center;
+      width: 10vw;
+      margin-bottom: 0.3rem;
+    }
+    #text-date .tag-dot {
+      width: 5px;
+      height: 5px;
+      background: #DBD9FF;
+      flex-shrink: 0;
+    }
+    #text-date .tag-line {
+      flex: 1;
+      height: 1px;
+      background: #DBD9FF;
+      opacity: 0.7;
+    }
+    #text-date .tag-label {
+      font-size: clamp(0.5rem, 0.75vw, 0.78rem);
+      color: #DBD9FF;
+      letter-spacing: 0.07em;
+    }
+    /* Chinese text – 4D frame bottom-left (left:10%, bottom:~5%) */
+    #text-chinese {
+      position: fixed;
+      left: 10%;
+      bottom: 5%;
+      display: flex;
+      flex-direction: column;
+      z-index: 70;
+    }
+    #text-chinese .tag-row {
+      display: flex;
+      align-items: center;
+      width: 8vw;
+      margin-bottom: 0.3rem;
+    }
+    #text-chinese .tag-line {
+      flex: 1;
+      height: 1px;
+      background: #DBD9FF;
+      opacity: 0.7;
+    }
+    #text-chinese .tag-label {
+      font-size: clamp(0.5rem, 0.75vw, 0.78rem);
+      color: #DBD9FF;
+      letter-spacing: 0.1em;
+      opacity: 0.85;
+    }
+
     @keyframes risoGrainJitter {
       0% {
         transform: translate3d(0, 0, 0);
@@ -160,6 +321,52 @@
   </div>
   <div id="riso-grain" aria-hidden="true"></div>
 
+  <!-- Frame-anchored text overlay (fixed position, does not scale with frames) -->
+  <div id="frame-text-overlay" aria-hidden="true">
+
+    <!-- Top-left: title (4D frame top-left corner) -->
+    <div id="text-title">String Theory</div>
+
+    <!-- Top-right: event info (4D frame top-right corner) -->
+    <div id="text-event">
+      <span>The Hong Kong Polytechnic University School of Fashion and Textiles</span>
+      <span>MA in Fashion &amp; Textile Design Graduate Show</span>
+    </div>
+
+    <!-- Right side: venue tag (3D frame top-right corner, line out to 4D frame) -->
+    <div id="text-venue">
+      <span class="tag-label">Shanghai Venue</span>
+      <div class="tag-row">
+        <span class="tag-line"></span>
+        <span class="tag-dot"></span>
+      </div>
+    </div>
+
+    <!-- Bottom-left: date tag (3D frame bottom-left corner, line out to 4D frame) -->
+    <div id="text-date">
+      <div class="tag-row">
+        <span class="tag-dot"></span>
+        <span class="tag-line"></span>
+      </div>
+      <span class="tag-label">05.03.2026 (Sat) | 14:00</span>
+    </div>
+
+    <!-- Bottom-left: Chinese text (4D frame bottom-left) -->
+    <div id="text-chinese">
+      <div class="tag-row">
+        <span class="tag-line"></span>
+      </div>
+      <span class="tag-label">CHINESE TEXT</span>
+    </div>
+
+  </div>
+  <div id="timeline-controls" aria-label="Animation timeline controls">
+    <button id="timeline-play-pause" type="button">Pause</button>
+    <input id="timeline-scrubber" type="range" min="0" max="1" step="0.001" value="0">
+    <span id="timeline-time">0.00 / 0.00s</span>
+    <button id="timeline-capture" type="button">Capture PNG</button>
+  </div>
+
   <script type="importmap">
     {
       "imports": {
@@ -170,7 +377,7 @@
     }
   </script>
 
-  <script type="module" src="main.js">
+  <script type="module" src="main-human.js">
   </script>
 </body>
 </html>

@@ -20,7 +20,7 @@ const flipConfig = {
 const pointCloudGeneration = {
   enabled: true,
   input: "public/bridge.glb",
-  output: "pointcloud.json",
+  output: "public/pointcloud.json",
   numPoints: 10000,
   scale: 70,
   rotXDeg: 0,
@@ -33,16 +33,16 @@ const blueMono = {
   ambientLight: 0x6259ff,
   keyLight: 0xdbd9ff,
   fillLight: 0x04004c,
-  gridLine: 0xaaa6ff,
+  gridLine: 0xffffff,
   pixelBg: 0xc2bfff,
   pixelLine: 0x030033,
-  pointCloud: 0x4a40ff,
-  model: 0x3126ff,
+  pointCloud: 0xffffff,
+  model: 0x3126ff, // 3d object model
   reservedTint: 0x928cff,
   monoDark: 0x01001a,
   monoLight: 0xc2bfff,
   emissiveBridge: 0x030033,
-  emissiveModel: 0x020026,
+  emissiveModel: 0x606060, // runway model
 };
 
 function initFlipVideo() {
@@ -51,7 +51,7 @@ function initFlipVideo() {
   flipConfig.video.muted        = true;
   flipConfig.video.defaultMuted = true;
   flipConfig.video.playsInline  = true;
-  flipConfig.video.autoplay     = true;
+  flipConfig.video.autoplay     = false;
   flipConfig.video.preload      = 'auto';
   flipConfig.video.crossOrigin  = 'anonymous';
   flipConfig.video.setAttribute('muted', '');
@@ -67,11 +67,7 @@ function initFlipVideo() {
 
   const markReadyAndTryPlay = () => {
     flipConfig.videoReady = true;
-    // Attempt autoplay; if blocked, retry on first interaction.
-    flipConfig.video.play().catch(() => {
-      window.addEventListener('pointerdown', tryVideoPlay, { once: true });
-      window.addEventListener('keydown', tryVideoPlay, { once: true });
-    });
+    // Video is ready but won't auto-play; wait for timeline trigger at 8s
   };
 
   flipConfig.video.addEventListener('loadedmetadata', markReadyAndTryPlay);
@@ -100,13 +96,13 @@ let staticSidesPendingFadeDuration = 0.8;
 let flipCenterRowLine = null;
 let flipCenterRowLineShown = false;
 const flipGridBaseScale = 0.15;
-const flipTileDepthStart = 0.1;
+const flipTileDepthStart = 0.05;
 const flipTileDepthEnd = 0.00001;
 const flipTileDepthState = { value: flipTileDepthStart };
 let flipState = {
   isAnimating: false,
   elapsed: 0,
-  speed: 20, // radians/sec
+  speed: 60, // radians/sec
   spacingProgress: 0, // 0 = current gaps, 1 = zero gaps
 };
 
@@ -470,7 +466,7 @@ const scene  = new THREE.Scene();
 scene.background = new THREE.Color(blueMono.sceneBg);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.03, 1000);
-camera.position.set(5, 5, 5);
+camera.position.set(5, 4, 5);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -888,7 +884,7 @@ function loadBridgeDebugMesh(url) {
     model.rotation.y = Math.PI / 2;
     model.rotation.z = 0;
     // Debug alignment scale for bridge mesh vs point-cloud cubes.
-    model.scale.setScalar(70);
+    model.scale.setScalar(20);
 
     // Start fully solid; animation can still fade it out later.
     model.traverse((child) => {
@@ -931,7 +927,7 @@ async function generatePointCloudOnInit() {
 }
 
 function loadPointCloud() {
-  new THREE.FileLoader(manager).load('pointcloud.json', (text) => {
+  new THREE.FileLoader(manager).load('public/pointcloud.json', (text) => {
     const data = JSON.parse(text);
     const raw  = [];
     data.points.forEach(p => raw.push(p[0], p[1], p[2]));
@@ -958,12 +954,13 @@ function loadPointCloud() {
       wireframe: false,
     });
 
-    cubes = new THREE.InstancedMesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), cubeMat, count);
+    cubes = new THREE.InstancedMesh(new THREE.BoxGeometry(0.03, 0.03, 0.03), cubeMat, count);
     cubes.castShadow = cubes.receiveShadow = true;
-    cubes.rotation.x = 0;
+    cubes.rotation.x = Math.PI/2;
     cubes.rotation.y = 0;
     cubes.rotation.z = 0;
-    cubes.position.y += 3;
+    cubes.scale.setScalar(20);
+    cubes.position.y += -1;
     scene.add(cubes);
 
     const rotations = new Float32Array(count * 3);
@@ -985,7 +982,7 @@ function loadPointCloud() {
     const box3 = new THREE.Box3().setFromObject(cubes);
     createGridWireframe(box3);
     // createGroundWireGrid(box3);
-    loadBridgeDebugMesh('public/bridge.glb');
+    loadBridgeDebugMesh('public/3d-model-knit.glb');
 
     dirLight.shadow.camera.left   = box3.min.x - 10;
     dirLight.shadow.camera.right  = box3.max.x + 10;
@@ -1006,15 +1003,173 @@ function loadPointCloud() {
 // CAMERA ANIMATION
 // ─────────────────────────────────────────────
 
+const cameraLoopStart = {
+  angle: 0,
+  radius: 20,
+  height: 14,
+  fov: 75,
+};
+
 const cam = {
   active: false,
   target: new THREE.Vector3(0, -2, 0),
-  angle:  0,
-  radius: 40,
-  height: 20,
-  fov: 75,
+  angle: cameraLoopStart.angle,
+  radius: cameraLoopStart.radius,
+  height: cameraLoopStart.height,
+  fov: cameraLoopStart.fov,
 };
 let cameraLoopTimeline = null;
+const timelineUi = {
+  container: null,
+  playPauseBtn: null,
+  scrubber: null,
+  timeLabel: null,
+  captureBtn: null,
+  isScrubbing: false,
+  visible: true,
+};
+
+function formatTimelineSeconds(value) {
+  return value.toFixed(2);
+}
+
+function timelineCycleDuration() {
+  if (!cameraLoopTimeline) return 1;
+  return Math.max(cameraLoopTimeline.duration(), 0.001);
+}
+
+function updateTimelinePlayPauseLabel() {
+  if (!timelineUi.playPauseBtn) return;
+  if (!cameraLoopTimeline) {
+    timelineUi.playPauseBtn.textContent = 'Play';
+    timelineUi.playPauseBtn.disabled = true;
+    return;
+  }
+  timelineUi.playPauseBtn.disabled = false;
+  timelineUi.playPauseBtn.textContent = cameraLoopTimeline.paused() ? 'Play' : 'Pause';
+}
+
+function syncTimelineControls(force = false) {
+  if (!timelineUi.scrubber || !timelineUi.timeLabel) return;
+
+  if (!cameraLoopTimeline) {
+    timelineUi.scrubber.min = '0';
+    timelineUi.scrubber.max = '1';
+    timelineUi.scrubber.value = '0';
+    timelineUi.timeLabel.textContent = '0.00 / 0.00s';
+    updateTimelinePlayPauseLabel();
+    return;
+  }
+
+  const duration = timelineCycleDuration();
+  const time = THREE.MathUtils.clamp(cameraLoopTimeline.time(), 0, duration);
+  timelineUi.scrubber.min = '0';
+  timelineUi.scrubber.max = String(duration);
+  timelineUi.scrubber.step = '0.001';
+  if (force || !timelineUi.isScrubbing) {
+    timelineUi.scrubber.value = String(time);
+  }
+  timelineUi.timeLabel.textContent = `${formatTimelineSeconds(time)} / ${formatTimelineSeconds(duration)}s`;
+  updateTimelinePlayPauseLabel();
+}
+
+function toggleTimelinePlayPause() {
+  if (!cameraLoopTimeline) return;
+  if (cameraLoopTimeline.paused()) {
+    cameraLoopTimeline.play();
+  } else {
+    cameraLoopTimeline.pause();
+  }
+  syncTimelineControls(true);
+}
+
+function setTimelineControlsVisible(visible) {
+  timelineUi.visible = visible;
+  if (!timelineUi.container) return;
+  timelineUi.container.style.display = visible ? 'flex' : 'none';
+}
+
+function toggleTimelineControlsVisibility() {
+  setTimelineControlsVisible(!timelineUi.visible);
+}
+
+function captureCurrentCanvasFrame() {
+  const canvas = renderer.domElement;
+  if (!canvas) return;
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const link = document.createElement('a');
+  link.download = `frame-${timestamp}.png`;
+
+  if (canvas.toBlob) {
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      link.href = url;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, 'image/png');
+    return;
+  }
+
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+function initTimelineControls() {
+  timelineUi.container = document.getElementById('timeline-controls');
+  timelineUi.playPauseBtn = document.getElementById('timeline-play-pause');
+  timelineUi.scrubber = document.getElementById('timeline-scrubber');
+  timelineUi.timeLabel = document.getElementById('timeline-time');
+  timelineUi.captureBtn = document.getElementById('timeline-capture');
+
+  if (!timelineUi.container || !timelineUi.playPauseBtn || !timelineUi.scrubber || !timelineUi.timeLabel || !timelineUi.captureBtn) return;
+  setTimelineControlsVisible(true);
+
+  timelineUi.playPauseBtn.addEventListener('click', () => {
+    toggleTimelinePlayPause();
+  });
+
+  timelineUi.scrubber.addEventListener('pointerdown', () => {
+    timelineUi.isScrubbing = true;
+  });
+  timelineUi.scrubber.addEventListener('pointerup', () => {
+    timelineUi.isScrubbing = false;
+  });
+  timelineUi.scrubber.addEventListener('input', () => {
+    if (!cameraLoopTimeline) return;
+    timelineUi.isScrubbing = true;
+    cameraLoopTimeline.pause();
+    const duration = timelineCycleDuration();
+    const next = THREE.MathUtils.clamp(Number(timelineUi.scrubber.value) || 0, 0, duration);
+    cameraLoopTimeline.time(next);
+    syncTimelineControls(true);
+  });
+  timelineUi.scrubber.addEventListener('change', () => {
+    timelineUi.isScrubbing = false;
+  });
+
+  timelineUi.captureBtn.addEventListener('click', () => {
+    captureCurrentCanvasFrame();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.code !== 'Space' || event.repeat) return;
+    const target = event.target;
+    if (target instanceof HTMLElement) {
+      if (target.isContentEditable) return;
+      if (target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') return;
+      if (target.tagName === 'INPUT') {
+        const input = target;
+        if (input.type !== 'range' && input.type !== 'button') return;
+      }
+    }
+    event.preventDefault();
+    toggleTimelineControlsVisibility();
+  });
+
+  syncTimelineControls(true);
+}
 
 function applyCameraFromState() {
   if (!cam.active || controls.enabled) return;
@@ -1031,10 +1186,10 @@ function applyCameraFromState() {
 }
 
 function resetLoopSceneState(bridgeOpacity) {
-  cam.angle = 0;
-  cam.radius = 40;
-  cam.height = 20;
-  cam.fov = 75;
+  cam.angle = cameraLoopStart.angle;
+  cam.radius = cameraLoopStart.radius;
+  cam.height = cameraLoopStart.height;
+  cam.fov = cameraLoopStart.fov;
   applyCameraFromState();
 
   showStaticSideFaces();
@@ -1053,6 +1208,25 @@ function resetLoopSceneState(bridgeOpacity) {
   applyFlipGridDepth(flipTileDepthStart);
   setFlipGridOpacity(1);
   resetFlipCascadeState(false);
+
+  // Reset runway model state
+  if (state.threeDScene?.model) {
+    const model = state.threeDScene.model;
+    model.visible = false;
+    model.position.z = state.threeDScene.startZ || 1;
+    state.threeDScene.isFadingOut = false;
+    state.threeDScene.fadeState.opacity = 0;
+    setObjectOpacity(model, 0);
+    if (state.threeDScene.action) {
+      state.threeDScene.action.stop();
+    }
+  }
+
+  // Reset video to start
+  if (flipConfig.video) {
+    flipConfig.video.pause();
+    flipConfig.video.currentTime = 0;
+  }
 }
 
 function animateCameraToCube() {
@@ -1066,7 +1240,7 @@ function animateCameraToCube() {
   const introBridgeHold = 1.2;
   const bridgeFadeDuration = 4;
   const crossFadeOverlap = bridgeFadeDuration;
-  const staticSideFadeOffset = 5.0;
+  const staticSideFadeOffset = 6.0;
   const staticSideFadeDuration = 2.0;
   const flipRestartOffset = 10.0;
   const cubesFadeInDuration = 8.0;
@@ -1077,18 +1251,18 @@ function animateCameraToCube() {
   const revealStart = Math.max(bridgeFadeStart, bridgeFadeEnd - crossFadeOverlap);
   const cameraMoveStart = bridgeFadeEnd * 0.5;
   const cameraPreAngle = 0.18;
-  const cameraPreRadius = 42;
-  const cameraPreHeight = 19;
-  const cameraZoomStart = cameraMoveStart + 5;
+  const cameraPreRadius = 20;
+  const cameraPreHeight = 10;
+  const cameraZoomStart = cameraMoveStart + 8; // Start immediately after camera movement ends
   const cameraZoomDuration = 15;
   const cubesFadeOutStart = cameraMoveStart;
   const bridgeStartOpacity = 1.0;
   const flipThinStart = cameraZoomStart + cameraZoomDuration;
-  const flipThinDuration = 3;
-  const flipFadeOutDuration = 0.2;
-  const flipFadeOutStart = flipThinStart + flipThinDuration;
+  const flipThinDuration = 2;
+  const flipFadeOutDuration = 0.1;
+  const flipFadeOutStart = flipThinStart + flipThinDuration - 2;
   const returnStart = flipFadeOutStart + flipFadeOutDuration;
-  const returnDuration = 6.0;
+  const returnDuration = 4.0;
   const cycleEnd = returnStart + returnDuration;
   const bridgeFade = { opacity: bridgeStartOpacity };
   resetLoopSceneState(bridgeStartOpacity);
@@ -1101,6 +1275,7 @@ function animateCameraToCube() {
     },
   })
     .call(() => restartDimensionFrameTimeline(), [], 0)
+    .call(() => startRunwayModel(), [], 8)
     .call(() => resetFlipCascadeState(true), [], flipRestartOffset)
     .call(() => fadeOutStaticSideFaces(staticSideFadeDuration), [], cameraMoveStart + staticSideFadeOffset)
     .to(cam, {
@@ -1128,7 +1303,7 @@ function animateCameraToCube() {
       duration: cubesFadeOutDuration,
       ease: 'power1.inOut',
       overwrite: false,
-    }, cubesFadeOutStart)
+    }, cubesFadeOutStart + 2)
     .to(reservedCube?.material ?? {}, {
       opacity: 0,
       duration: 0.8,
@@ -1144,7 +1319,7 @@ function animateCameraToCube() {
       duration: flipThinDuration,
       ease: 'power1.out',
       onUpdate: () => applyFlipGridDepth(flipTileDepthState.value),
-    }, flipThinStart - 2)
+    }, flipThinStart - 6)
     .to(flipGrid?.material?.uniforms?.uOpacity ?? {}, {
       value: 0,
       duration: flipFadeOutDuration,
@@ -1165,10 +1340,10 @@ function animateCameraToCube() {
       ease: 'power1.out',
     }, cameraZoomStart)
     .to(cam, {
-      angle: 0,
-      radius: 40,
-      height: 20,
-      fov: 75,
+      angle: cameraLoopStart.angle,
+      radius: cameraLoopStart.radius,
+      height: cameraLoopStart.height,
+      fov: cameraLoopStart.fov,
       duration: returnDuration,
       ease: 'sine.inOut',
     }, returnStart)
@@ -1199,12 +1374,9 @@ function animateCameraToCube() {
       onUpdate: () => applyFlipGridDepth(flipTileDepthState.value),
     }, returnStart)
     .to(flipGrid?.material?.uniforms?.uOpacity ?? {}, {
-      value: 1,
+      value: 0,
       duration: returnDuration * 0.45,
       ease: 'sine.inOut',
-      onStart: () => {
-        if (flipGrid) flipGrid.visible = true;
-      },
       onUpdate: () => {
         if (flipGrid?.material?.uniforms?.uOpacity) {
           setFlipGridOpacity(flipGrid.material.uniforms.uOpacity.value);
@@ -1215,11 +1387,42 @@ function animateCameraToCube() {
       duration: 0.01,
     }, cycleEnd)
     ;
+
+  syncTimelineControls(true);
 }
 
 // ─────────────────────────────────────────────
 // 3-D RUNWAY HUMAN
 // ─────────────────────────────────────────────
+
+function startRunwayModel() {
+  if (!state.threeDScene?.model) return;
+
+  const { model, action, fadeState } = state.threeDScene;
+  
+  state.threeDScene.isFadingOut = false;
+  fadeState.opacity = 0;
+  setObjectOpacity(model, 0);
+  model.visible = true;
+  
+  // START VIDEO PLAYBACK
+  if (flipConfig.video) {
+    flipConfig.video.currentTime = 0;
+    flipConfig.video.play().catch(() => {});
+  }
+  
+  if (action) {
+    action.reset().play();
+  }
+  
+  gsap.killTweensOf(fadeState);
+  gsap.to(fadeState, {
+    opacity: 1,
+    duration: 0.8,
+    ease: 'power2.out',
+    onUpdate: () => setObjectOpacity(model, fadeState.opacity),
+  });
+}
 
 function loadRunwayHuman3D(url) {
 
@@ -1258,24 +1461,6 @@ function loadRunwayHuman3D(url) {
       isFadingOut: false,
       fadeState: { opacity: 0 },
     };
-
-    gsap.delayedCall(8, () => {
-      requestAnimationFrame(() => {
-        state.threeDScene.isFadingOut = false;
-        state.threeDScene.fadeState.opacity = 0;
-        setObjectOpacity(model, 0);
-        model.visible = true;
-        if (action) {
-          action.reset().play();
-        }
-        gsap.to(state.threeDScene.fadeState, {
-          opacity: 1,
-          duration: 0.8,
-          ease: 'power2.out',
-          onUpdate: () => setObjectOpacity(model, state.threeDScene.fadeState.opacity),
-        });
-      });
-    });
   });
 }
 
@@ -1305,12 +1490,9 @@ function renderLoop() {
   rafId = requestAnimationFrame(renderLoop);
   const delta = clock.getDelta();
 
-  // Keep video playback active and keep the VideoTexture fresh.
+  // Keep video texture fresh if playing.
   if (flipConfig.video) {
-    if (flipConfig.video.paused) {
-      flipConfig.video.play().catch(() => {});
-    }
-    if (flipVideoTexture && flipConfig.video.readyState >= flipConfig.video.HAVE_CURRENT_DATA) {
+    if (flipVideoTexture && flipConfig.video.readyState >= flipConfig.video.HAVE_CURRENT_DATA && !flipConfig.video.paused) {
       flipVideoTexture.needsUpdate = true;
     }
     if (flipConfig.video.currentTime !== lastVideoTime) {
@@ -1423,6 +1605,7 @@ function renderLoop() {
   if (controls.enabled) {
     controls.update();
   }
+  syncTimelineControls();
 
   // ── Off-screen render target ──
   renderer.setRenderTarget(renderTarget);
@@ -1456,4 +1639,5 @@ async function boot() {
   loadPointCloud();
 }
 
+initTimelineControls();
 boot();
