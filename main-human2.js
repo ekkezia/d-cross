@@ -4,6 +4,9 @@ import gsap from 'gsap';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import GUI from 'lil-gui';
+import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 
 // ─────────────────────────────────────────────
 // DEBUG PARAMS (lil-gui)
@@ -19,6 +22,10 @@ const ankleDebug = {
   marker2ZOffset: 6,    // independent Z offset for ankle marker 2
   marker2YOffset: 0.2,  // independent Y offset for ankle marker 2
 };
+
+// Secondary runway clone appears as a partial-opacity "ghost trail".
+// Keep this disabled unless that effect is explicitly desired.
+const runwayGhostTrailEnabled = true;
 
 // ─────────────────────────────────────────────
 // FLIP GRID CONFIG
@@ -58,14 +65,14 @@ const blueMono = {
   monoDark: 0x01001a,
   monoLight: 0xc2bfff,
   emissiveBridge: 0x030033,
-  emissiveModel: 0x606060, // runway model
+  emissiveModel: 0x0a0a0a, // runway model
 };
 
 const palettes = {
-  blue:   { three: { sceneBg: 0x0d00ff, ambientLight: 0x6259ff, keyLight: 0xdbd9ff, fillLight: 0x04004c, gridLine: 0xffffff, monoDark: 0x01001a, monoLight: 0xc2bfff, model: 0x3126ff }, css: { '--p-matte': 'rgba(13,0,255,1)', '--p-border': 'rgba(194,191,255,0.48)', '--p-text': '#DBD9FF', '--p-canvas-bg': '#0d00ff', '--p-bar-bg': 'rgba(7,3,54,0.72)', '--p-bar-border': 'rgba(194,191,255,0.45)', '--p-bar-color': '#dbd9ff', '--p-btn-bg': 'rgba(12,8,84,0.9)', '--p-btn-border': 'rgba(194,191,255,0.55)' } },
-  black:  { three: { sceneBg: 0x000000, ambientLight: 0x888888, keyLight: 0xffffff, fillLight: 0x111111, gridLine: 0xffffff, monoDark: 0x050505, monoLight: 0xdddddd, model: 0x888888 }, css: { '--p-matte': 'rgba(0,0,0,1)', '--p-border': 'rgba(255,255,255,0.4)', '--p-text': '#ffffff', '--p-canvas-bg': '#000000', '--p-bar-bg': 'rgba(10,10,10,0.82)', '--p-bar-border': 'rgba(255,255,255,0.4)', '--p-bar-color': '#ffffff', '--p-btn-bg': 'rgba(30,30,30,0.9)', '--p-btn-border': 'rgba(255,255,255,0.45)' } },
-  purple: { three: { sceneBg: 0x0d0020, ambientLight: 0x7b3bff, keyLight: 0xe8d5ff, fillLight: 0x1a0040, gridLine: 0xffffff, monoDark: 0x080018, monoLight: 0xd4b8ff, model: 0x7b3bff }, css: { '--p-matte': 'rgba(13,0,32,1)', '--p-border': 'rgba(212,184,255,0.5)', '--p-text': '#e8d5ff', '--p-canvas-bg': '#0d0020', '--p-bar-bg': 'rgba(15,5,40,0.82)', '--p-bar-border': 'rgba(212,184,255,0.45)', '--p-bar-color': '#e8d5ff', '--p-btn-bg': 'rgba(30,10,70,0.9)', '--p-btn-border': 'rgba(212,184,255,0.55)' } },
-  gray:   { three: { sceneBg: 0xe0e0e0, ambientLight: 0x999999, keyLight: 0xffffff, fillLight: 0x666666, gridLine: 0x333333, monoDark: 0x444444, monoLight: 0xf5f5f5, model: 0x777777 }, css: { '--p-matte': 'rgba(220,220,220,1)', '--p-border': 'rgba(80,80,80,0.5)', '--p-text': '#222222', '--p-canvas-bg': '#e0e0e0', '--p-bar-bg': 'rgba(200,200,200,0.85)', '--p-bar-border': 'rgba(80,80,80,0.45)', '--p-bar-color': '#222222', '--p-btn-bg': 'rgba(180,180,180,0.9)', '--p-btn-border': 'rgba(80,80,80,0.6)' } },
+  blue:   { three: { sceneBg: 0x0d00ff, ambientLight: 0x6259ff, keyLight: 0xdbd9ff, fillLight: 0x04004c, gridLine: 0xffffff, monoDark: 0x01001a, monoLight: 0xc2bfff, model: 0x1508cc }, css: { '--p-matte': 'rgba(13,0,255,1)', '--p-border': 'rgba(194,191,255,0.48)', '--p-text': '#DBD9FF', '--p-canvas-bg': '#0d00ff', '--p-bar-bg': 'rgba(7,3,54,0.72)', '--p-bar-border': 'rgba(194,191,255,0.45)', '--p-bar-color': '#dbd9ff', '--p-btn-bg': 'rgba(12,8,84,0.9)', '--p-btn-border': 'rgba(194,191,255,0.55)' } },
+  black:  { three: { sceneBg: 0x000000, ambientLight: 0x888888, keyLight: 0xffffff, fillLight: 0x111111, gridLine: 0xffffff, monoDark: 0x050505, monoLight: 0xdddddd, model: 0x444444 }, css: { '--p-matte': 'rgba(0,0,0,1)', '--p-border': 'rgba(255,255,255,0.4)', '--p-text': '#ffffff', '--p-canvas-bg': '#000000', '--p-bar-bg': 'rgba(10,10,10,0.82)', '--p-bar-border': 'rgba(255,255,255,0.4)', '--p-bar-color': '#ffffff', '--p-btn-bg': 'rgba(30,30,30,0.9)', '--p-btn-border': 'rgba(255,255,255,0.45)' } },
+  purple: { three: { sceneBg: 0x0d0020, ambientLight: 0x7b3bff, keyLight: 0xe8d5ff, fillLight: 0x1a0040, gridLine: 0xffffff, monoDark: 0x080018, monoLight: 0xd4b8ff, model: 0x4a18cc }, css: { '--p-matte': 'rgba(13,0,32,1)', '--p-border': 'rgba(212,184,255,0.5)', '--p-text': '#e8d5ff', '--p-canvas-bg': '#0d0020', '--p-bar-bg': 'rgba(15,5,40,0.82)', '--p-bar-border': 'rgba(212,184,255,0.45)', '--p-bar-color': '#e8d5ff', '--p-btn-bg': 'rgba(30,10,70,0.9)', '--p-btn-border': 'rgba(212,184,255,0.55)' } },
+  gray:   { three: { sceneBg: 0xe0e0e0, ambientLight: 0x999999, keyLight: 0xffffff, fillLight: 0x666666, gridLine: 0x333333, monoDark: 0x444444, monoLight: 0xf5f5f5, model: 0x333333 }, css: { '--p-matte': 'rgba(220,220,220,1)', '--p-border': 'rgba(80,80,80,0.5)', '--p-text': '#222222', '--p-canvas-bg': '#e0e0e0', '--p-bar-bg': 'rgba(200,200,200,0.85)', '--p-bar-border': 'rgba(80,80,80,0.45)', '--p-bar-color': '#222222', '--p-btn-bg': 'rgba(180,180,180,0.9)', '--p-btn-border': 'rgba(80,80,80,0.6)' } },
 };
 
 window.applyPalette = function(id) {
@@ -73,9 +80,10 @@ window.applyPalette = function(id) {
   if (!p) return;
   const t = p.three;
   // Update blueMono so resets use the correct palette colors
-  Object.assign(blueMono, { sceneBg: t.sceneBg, ambientLight: t.ambientLight, keyLight: t.keyLight, fillLight: t.fillLight, gridLine: t.gridLine, monoDark: t.monoDark, monoLight: t.monoLight, model: t.model });
+  Object.assign(blueMono, { sceneBg: t.sceneBg, ambientLight: t.ambientLight, keyLight: t.keyLight, fillLight: t.fillLight, gridLine: t.gridLine, monoDark: t.monoDark, monoLight: t.monoLight, model: t.model, pixelBg: t.monoLight });
+  if (screenSceneBgMat) screenSceneBgMat.color.setHex(t.monoLight);
   // Three.js scene
-  scene.background.setHex(t.sceneBg);
+  if (scene.background) scene.background.setHex(t.sceneBg);
   _ambientLight.color.setHex(t.ambientLight);
   dirLight.color.setHex(t.keyLight);
   fillLight.color.setHex(t.fillLight);
@@ -86,10 +94,20 @@ window.applyPalette = function(id) {
     if (face.material?.uniforms?.monoDark) { gsap.killTweensOf(face.material.uniforms.monoDark.value); face.material.uniforms.monoDark.value.setHex(t.monoDark); }
     if (face.material?.uniforms?.monoLight) { gsap.killTweensOf(face.material.uniforms.monoLight.value); face.material.uniforms.monoLight.value.setHex(t.monoLight); }
   });
-  if (reservedCube?.material?.color) { gsap.killTweensOf(reservedCube.material.color); reservedCube.material.color.setHex(t.ambientLight); }
-  extraReservedCubes.forEach(c => { if (c.material?.color) c.material.color.setHex(t.ambientLight); });
+  if (reservedCube?.material?.color) { gsap.killTweensOf(reservedCube.material.color); reservedCube.material.color.setHex(t.model); }
+  extraReservedCubes.forEach(c => { if (c.material?.color) c.material.color.setHex(t.model); });
   [state.threeDScene?.model, state.threeDScene2?.model].forEach(m => {
-    if (m) forEachObjectMaterial(m, mat => { if ('color' in mat && mat.color) mat.color.setHex(t.model); });
+    if (m) forEachObjectMaterial(m, mat => {
+      if ('color' in mat && mat.color) mat.color.setHex(t.model);
+      if ('emissive' in mat && mat.emissive) mat.emissive.setHex(blueMono.emissiveModel);
+    });
+  });
+  // 4D GLB mesh + its mirrored copy
+  [FourDMesh, secondFourDMesh].forEach(m => {
+    if (m) forEachObjectMaterial(m, mat => {
+      if ('color' in mat && mat.color) mat.color.setHex(t.model);
+      if ('emissive' in mat && mat.emissive) mat.emissive.setHex(t.monoDark);
+    });
   });
   // Ankle markers stay red regardless of palette
   [state.ankleMarker1, state.ankleMarker2, state.ankleConnector].forEach(obj => {
@@ -535,12 +553,12 @@ const state = {
 // ─────────────────────────────────────────────
 
 const scene  = new THREE.Scene();
-scene.background = new THREE.Color(blueMono.sceneBg);
+scene.background = null; // transparent — body bg shows through
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.03, 1000);
 camera.position.set(5, 4, 5);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.shadowMap.enabled = true;
@@ -592,10 +610,11 @@ orthoCamera.position.z = 2;
 orthoCamera.lookAt(0, 0, 0);
 
 const screenScene = new THREE.Scene();
+const screenSceneBgMat = new THREE.MeshBasicMaterial({ color: blueMono.pixelBg });
 screenScene.add(
   new THREE.Mesh(
     new THREE.PlaneGeometry(2, 2),
-    new THREE.MeshBasicMaterial({ color: blueMono.pixelBg })
+    screenSceneBgMat
   )
 );
 
@@ -625,12 +644,34 @@ const manager = new THREE.LoadingManager(
 
     allObjects.forEach(o => { o.visible = false; });
 
-    loadingOverlay.style.display = 'none';
-    initDimensionFrameOverlay(); // TODO
-    startRenderLoop();
+    // Snap bar to 100%, hold, then animate backdrop back to normal, then fade out and start
+    const bar   = document.getElementById('loading-bar');
+    const label = document.getElementById('loading-pct');
+    if (bar)   bar.style.width = '100%';
+    if (label) label.textContent = '100%';
+
+    setTimeout(() => {
+      // Step 1: animate backdrop-filter back to clear
+      loadingOverlay.style.backdropFilter = 'blur(0px) brightness(1)';
+      loadingOverlay.style.webkitBackdropFilter = 'blur(0px) brightness(1)';
+      loadingOverlay.style.background = 'rgba(13, 0, 255, 0)';
+      setTimeout(() => {
+        // Step 2: fade the whole overlay out
+        loadingOverlay.style.opacity = '0';
+        setTimeout(() => {
+          loadingOverlay.style.display = 'none';
+          initDimensionFrameOverlay();
+          startRenderLoop();
+        }, 520);
+      }, 820); // wait for backdrop transition
+    }, 600); // hold at 100% for 600ms
   },
   (url, loaded, total) => {
-    loadingOverlay.innerText = `Loading ${Math.round((loaded / total) * 100)}%`;
+    const pct = Math.round((loaded / total) * 100);
+    const bar = document.getElementById('loading-bar');
+    const label = document.getElementById('loading-pct');
+    if (bar) bar.style.width = pct + '%';
+    if (label) label.textContent = pct + '%';
   },
   (url) => console.error('Error loading:', url)
 );
@@ -937,7 +978,7 @@ function initDimensionFrameOverlay() {
   const durationScales = [1, 1, 1, 1]; // 4D -> 1D
   const scaleDurations = baseDurations.slice(0, layers.length).map((d, i) => d * durationScales[i]);
   const cycleDuration = Math.max(...scaleDurations);
-  const targetInsets = [5, 10, 15, 30];
+  const targetInsets = [6, 11, 18, 24];
   const startInsets = [0, 0, 0, 0];
   const insetStates = targetInsets.map((target, i) => ({
     value: target,
@@ -1098,7 +1139,9 @@ async function generatePointCloudOnInit() {
   if (!pointCloudGeneration.enabled) return;
 
   loadingOverlay.style.display = "flex";
-  loadingOverlay.innerText = "Generating point cloud...";
+  const loadingSpan = loadingOverlay.querySelector('#loading-label span');
+  if (loadingSpan) loadingSpan.textContent = 'Generating point cloud…';
+  else loadingOverlay.innerText = "Generating point cloud...";
 
   const response = await fetch("/api/generate-pointcloud", {
     method: "POST",
@@ -1193,7 +1236,7 @@ function loadPointCloud() {
 // ─────────────────────────────────────────────
 
 const cameraLoopStart = {
-  angle: -6.3,
+  angle: Math.PI,
   radius: 50,
   height: 0,
   fov: 50,
@@ -1375,14 +1418,7 @@ function applyCameraFromState() {
 }
 
 function resetLoopSceneState(bridgeOpacity) {
-  cam.angle = cameraLoopStart.angle;
-  cam.radius = cameraLoopStart.radius;
-  cam.height = cameraLoopStart.height;
-  cam.fov = cameraLoopStart.fov;
-  cam.target.y = CameraTargetY;
-  applyCameraFromState();
-
-  showStaticSideFaces();
+  // Reset runway model state
   if (FourDMesh) {
     FourDMesh.visible = true;
   }
@@ -1426,6 +1462,7 @@ function resetLoopSceneState(bridgeOpacity) {
     state.threeDScene.walkZ = state.threeDScene.startZ;
     state.threeDScene.isFadingOut = false;
     state.threeDScene.fadeState.opacity = 0;
+    state.threeDScene.fadeState.fadingOut = false;
     setObjectOpacity(model, 0);
     if (state.threeDScene.action) {
       state.threeDScene.action.stop();
@@ -1437,11 +1474,15 @@ function resetLoopSceneState(bridgeOpacity) {
     m2.walkZ = m2.startZ;
     m2.isFadingOut = false;
     m2.fadeState.opacity = 0;
+    m2.fadeState.fadingIn = false;
+    m2.fadeState.fadingOut = false;
     setObjectOpacity(m2.model, 0);
     if (m2.action) m2.action.stop();
   }
+  // sc2EverAppeared is intentionally NOT reset — marker2 + connector stay visible from loop 2 onward
   [state.ankleMarker1, state.ankleMarker2, state.ankleConnector].forEach(obj => {
-    if (obj) obj.visible = false;
+    // Only hide marker1; marker2 and connector always stay visible
+    if (obj === state.ankleMarker1) { if (obj) obj.visible = false; }
     if (obj?.material?.color) { gsap.killTweensOf(obj.material.color); obj.material.color.set(0xe62626); }
   });
 
@@ -1483,7 +1524,7 @@ function animateCameraToCube() {
   const flipThinStart = cameraZoomStart + cameraZoomDuration;
   const flipThinDuration = 2;
   const flipFadeOutDuration = 1.5;
-  const flipFadeOutStart = flipThinStart + flipThinDuration - 2;
+  const flipFadeOutStart = flipThinStart + flipThinDuration - 4;
   const returnStart = flipFadeOutStart + flipFadeOutDuration;
   const returnDuration = 4.0;
   const cycleEnd = returnStart + returnDuration;
@@ -1500,8 +1541,21 @@ function animateCameraToCube() {
     .call(() => restartDimensionFrameTimeline(), [], 0)
     .call(() => startRunwayModel(), [], 8)   // model appears at t=8s
     .call(() => startRunwayVideo(), [], 10)  // video starts at t=12s (adjust independently)
+    .call(() => startRunwayGhost(), [], returnStart) // ghost + markers appear when camera returns
     .call(() => resetFlipCascadeState(true), [], flipRestartOffset)
     .call(() => fadeOutStaticSideFaces(staticSideFadeDuration), [], cameraMoveStart + staticSideFadeOffset)
+    // Reset #text-unbroken to its initial state so stale GSAP values don't persist between restarts
+    .set('#text-unbroken', {
+      opacity: 0.15,
+      scale: 1,
+    }, 0)
+    .to(cam, {
+      angle: cameraLoopStart.angle,
+      radius: cameraLoopStart.radius,
+      height: cameraLoopStart.height,
+      fov: cameraLoopStart.fov,
+      duration: 0,
+    }, 0)
     .to(cam.target, {
       y: CameraTargetY,
       duration: 0,
@@ -1537,9 +1591,25 @@ function animateCameraToCube() {
     }, cameraMoveStart)
     .to(cam.target, {
       y: ThreeDPosition[1],
-      duration: 8,
+      duration: 4,
       ease: 'sine.inOut',
     }, cameraMoveStart)
+    .to('#text-unbroken', {
+      scale: (() => {
+        const a = document.querySelector('.aspect-btn.active')?.dataset?.aspect;
+        return (a === '1:1') ? 0.65 : 0.65;
+      })(),
+      duration: 4,
+      ease: 'sine.inOut',
+    }, cameraMoveStart + 3)
+    .to('#text-unbroken', {
+      opacity: (() => {
+        const a = document.querySelector('.aspect-btn.active')?.dataset?.aspect;
+        return (a === '9:16') ? 0.8 : 0.75;
+      })(),
+      duration: 4,
+      ease: 'sine.inOut',
+    }, flipRestartOffset)
     .to(cubes?.material ?? {}, {
       opacity: 1, duration: cubesFadeInDuration, ease: 'power2.out', overwrite: false,
     }, revealStart)
@@ -1583,6 +1653,31 @@ function animateCameraToCube() {
       });
       // Ankle markers are always red — no tween needed
     }, [], cameraMoveStart + 1)
+    .call(() => {
+      // Fade wireframes back from red to palette colors
+      const targetGrid  = new THREE.Color(blueMono.gridLine);
+      const targetDark  = new THREE.Color(blueMono.monoDark);
+      const targetLight = new THREE.Color(blueMono.monoLight);
+      const dur = returnDuration * 0.7;
+      const ease = 'sine.inOut';
+      wireframeMaterials.forEach(mat => {
+        gsap.to(mat.color, { r: targetGrid.r, g: targetGrid.g, b: targetGrid.b, duration: dur, ease });
+      });
+      if (flipGrid?.material?.uniforms?.monoDark) {
+        gsap.to(flipGrid.material.uniforms.monoDark.value, { r: targetDark.r, g: targetDark.g, b: targetDark.b, duration: dur, ease });
+      }
+      if (flipGrid?.material?.uniforms?.monoLight) {
+        gsap.to(flipGrid.material.uniforms.monoLight.value, { r: targetLight.r, g: targetLight.g, b: targetLight.b, duration: dur, ease });
+      }
+      flipStaticSideFaces.forEach(face => {
+        if (face.material?.uniforms?.monoDark) {
+          gsap.to(face.material.uniforms.monoDark.value, { r: targetDark.r, g: targetDark.g, b: targetDark.b, duration: dur, ease });
+        }
+        if (face.material?.uniforms?.monoLight) {
+          gsap.to(face.material.uniforms.monoLight.value, { r: targetLight.r, g: targetLight.g, b: targetLight.b, duration: dur, ease });
+        }
+      });
+    }, [], returnStart)
     .to(reservedCube?.material ?? {}, {
       opacity: 0,
       duration: 0.8,
@@ -1627,13 +1722,10 @@ function animateCameraToCube() {
       ease: 'power1.out',
     }, cameraZoomStart)
     .to(cam.target, {
-      keyframes: [
-        // Hold the target at head level while the camera lifts
-        { y: ThreeDPosition[1], duration: returnDuration * 0.45, ease: 'none' },
-        // Then bring the target back down to the standard mid-body aim
-        { y: CameraTargetY, duration: returnDuration * 0.55, ease: 'sine.inOut' },
-      ],
-    }, returnStart - 2)
+      y: CameraTargetY,
+      duration: returnDuration * 0.8,
+      ease: 'sine.inOut',
+    }, returnStart)
     .to(bridgeFade, {
       opacity: bridgeStartOpacity,
       duration: returnDuration * 0.8,
@@ -1690,6 +1782,12 @@ function animateCameraToCube() {
       duration: returnDuration * 0.7,
       ease: 'sine.inOut',
     }, returnStart)
+    .to('#text-unbroken', {
+      opacity: 0.2,
+      scale: 1,
+      duration: returnDuration * 0.7,
+      ease: 'sine.inOut',
+    }, returnStart)
     .to({}, {
       duration: 0.01,
     }, cycleEnd)
@@ -1705,11 +1803,21 @@ function animateCameraToCube() {
 function startRunwayModel() {
   if (!state.threeDScene?.model) return;
 
+  // Adjust startZ per active aspect ratio – closer to cube for portrait/square
+  const _activeAspect = document.querySelector('.aspect-btn.active')?.dataset?.aspect;
+  const _startZOffset = (_activeAspect === '9:16' || _activeAspect === '1:1') ? -1 : -2;
+  state.threeDScene.startZ = ThreeDPosition[2] + _startZOffset;
+  if (state.threeDScene2) {
+    state.threeDScene2.startZ = state.threeDScene.startZ - 3;
+  }
+
   const { model, action, fadeState } = state.threeDScene;
   
   state.threeDScene.isFadingOut = false;
   state.threeDScene.walkZ = state.threeDScene.startZ; // reset walk position
+  state.sc2EverAppeared = true; // marker2 + connector always show when model1 walks
   fadeState.opacity = 0;
+  fadeState.fadingOut = false;
   setObjectOpacity(model, 0);
 
   // Always reset position so model walks from startZ
@@ -1732,20 +1840,32 @@ function startRunwayModel() {
     opacity: 1,
     duration: 0.8,
     ease: 'power2.out',
-    onUpdate: () => setObjectOpacity(model, fadeState.opacity),
+    onUpdate: () => {
+      const op = fadeState.opacity;
+      model.traverse(child => {
+        if ((child.isMesh || child.isSkinnedMesh) && child.material) {
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          mats.forEach(m => { m.transparent = true; m.depthWrite = false; m.opacity = op; m.needsUpdate = true; });
+        }
+      });
+    },
   });
 
-  // Start second model 3 Z-units behind
-  if (state.threeDScene2?.model) {
+  // (ghost model + markers are started separately via startRunwayGhost() at returnStart)
+}
+
+function startRunwayGhost() {
+  // Start ghost model (marker2 + connector are already shown by startRunwayModel)
+  if (runwayGhostTrailEnabled && state.threeDScene2?.model) {
     const sc2 = state.threeDScene2;
     sc2.isFadingOut = false;
     sc2.walkZ = sc2.startZ;
     sc2.fadeState.opacity = 0;
     sc2.fadeState.targetOpacity = 0.4;
     sc2.fadeState.fadingIn = true;
+    sc2.fadeState.fadingOut = false;
     sc2.fadeState.fadeInStart = performance.now();
     sc2.fadeState.fadeInDuration = 800; // ms
-    // Force zero opacity before making visible
     sc2.model.traverse(child => {
       if ((child.isMesh || child.isSkinnedMesh) && child.material) {
         const mats = Array.isArray(child.material) ? child.material : [child.material];
@@ -1786,7 +1906,7 @@ function loadRunwayHuman3D(url) {
     });
     model.visible = false; // startRunwayModel will make it visible with fade-in
     scene.add(model);
-    console.log('FBX loaded and added to scene', model);
+    // console.log('FBX loaded and added to scene', model);
 
     const mixer = new THREE.AnimationMixer(model);
     let action = null;
@@ -1801,9 +1921,9 @@ function loadRunwayHuman3D(url) {
       action,
       walkSpeed: 0.5, // units per second
       startZ: ThreeDPosition[2] - 2, // start screen-right, move toward screen-left
-      endZ: ThreeDPosition[2], // loop when reaching this Z plane
+      endZ: ThreeDPosition[2] - 0.4, // fade out earlier (lower = sooner)
       laneX: ThreeDPosition[0] - 0.5, // fixed X lane
-      laneY: ankleDebug.laneY, // fixed Y height
+      laneY: ThreeDPosition[1] - 0.3, // fixed model Y height (use ankleDebug.laneY for marker offset only)
       isFadingOut: false,
       fadeState: { opacity: 0 },
     };
@@ -1850,24 +1970,30 @@ function loadRunwayHuman3D(url) {
     };
 
     // ── Ankle wireframe markers ──
-    const ankleGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(0.3, 0.15, 0.3));
-    const ankleMat = new THREE.LineBasicMaterial({ color: 0xe62626 }); // red from start
+    const _edgesGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(0.4, 0.15, 0.4));
+    const ankleGeo = new LineSegmentsGeometry().fromEdgesGeometry(_edgesGeo);
+    const ankleMat = new LineMaterial({
+      color: 0xe62626,
+      linewidth: 0.8,          // pixels
+      worldUnits: false,
+      resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
+    });
 
-    state.ankleMarker1 = new THREE.LineSegments(ankleGeo, ankleMat.clone());
+    state.ankleMarker1 = new LineSegments2(ankleGeo, ankleMat.clone());
     state.ankleMarker1.visible = true;
     scene.add(state.ankleMarker1);
 
     // Mirror on opposite X side (reflected around ThreeDPosition[0])
-    state.ankleMarker2 = new THREE.LineSegments(ankleGeo, ankleMat.clone());
-    state.ankleMarker2.visible = false;
+    state.ankleMarker2 = new LineSegments2(ankleGeo, ankleMat.clone());
+    state.ankleMarker2.visible = true;
     scene.add(state.ankleMarker2);
 
     const connPositions = new Float32Array(6);
     const connGeo = new THREE.BufferGeometry();
     connGeo.setAttribute('position', new THREE.BufferAttribute(connPositions, 3));
-    state.ankleConnector = new THREE.Line(connGeo, ankleMat.clone());
+    state.ankleConnector = new THREE.Line(connGeo, new THREE.LineBasicMaterial({ color: 0xe62626, linewidth: 2 }));
     state.ankleConnector.frustumCulled = false;
-    state.ankleConnector.visible = false;
+    state.ankleConnector.visible = true;
     scene.add(state.ankleConnector);
 
 
@@ -1948,7 +2074,7 @@ function renderLoop() {
   if (state.twoDScene?.mixer) {
     state.twoDScene.mixer.update(delta);
   }
-  if (state.threeDScene2?.mixer) {
+  if (runwayGhostTrailEnabled && state.threeDScene2?.mixer) {
     state.threeDScene2.mixer.update(delta);
     if (state.threeDScene2.model?.visible) {
       const sc2 = state.threeDScene2;
@@ -1962,29 +2088,61 @@ function renderLoop() {
     const endZ = sc.endZ ?? 0;
 
     if (sc.walkZ === undefined) sc.walkZ = sc.startZ;
-    if (!sc.isFadingOut) {
-      sc.walkZ += sc.walkSpeed * delta;
-      if (sc.walkZ >= endZ) {
-        sc.isFadingOut = true;
-        gsap.killTweensOf(sc.fadeState);
-        gsap.to(sc.fadeState, {
-          opacity: 0,
-          duration: 0.6,
-          ease: 'power1.out',
-          onUpdate: () => setObjectOpacity(sc.model, sc.fadeState.opacity),
-          onComplete: () => {
-            sc.model.visible = false;
-            sc.isFadingOut = false;
-            if (sc.action) sc.action.stop();
-          },
-        });
+
+    // Keep runway translation running during fade-out so the model does not
+    // look like it is "walking in place" while opacity drops.
+    sc.walkZ += sc.walkSpeed * delta;
+    if (!sc.isFadingOut && sc.walkZ >= endZ) {
+      sc.isFadingOut = true;
+      sc.fadeState.fadingOut = true;
+      sc.fadeState.fadeOutStart = performance.now();
+      sc.fadeState.fadeOutFrom = sc.fadeState.opacity;
+      sc.fadeState.fadeOutDuration = 900; // ms
+    }
+
+    // Drive fade-out manually every frame
+    if (sc.fadeState.fadingOut) {
+      const elapsed = performance.now() - sc.fadeState.fadeOutStart;
+      const t = Math.min(1, elapsed / sc.fadeState.fadeOutDuration);
+      sc.fadeState.opacity = sc.fadeState.fadeOutFrom * (1 - t);
+      if (t >= 1) {
+        sc.fadeState.fadingOut = false;
+        sc.fadeState.opacity = 0;
+        setObjectOpacity(sc.model, 0);
+        sc.model.visible = false;
+        sc.isFadingOut = false;
+        if (sc.action) sc.action.stop();
       }
     }
+
+    // Force opacity every frame via direct traverse
+    const targetOp1 = sc.fadeState.opacity;
+    sc.model.traverse(child => {
+      if ((child.isMesh || child.isSkinnedMesh) && child.material) {
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        mats.forEach(m => { m.transparent = true; m.depthWrite = false; m.opacity = targetOp1; m.needsUpdate = true; });
+      }
+    });
+
   }
 
   // ── Move model2 forward ──
-  if (state.threeDScene2?.model && state.threeDScene2.model.visible) {
+  if (runwayGhostTrailEnabled && state.threeDScene2?.model && state.threeDScene2.model.visible) {
     const sc2 = state.threeDScene2;
+    const endZ2 = sc2.endZ ?? 0;
+    if (sc2.walkZ === undefined) sc2.walkZ = sc2.startZ;
+
+    // Keep motion during fade-out for the same reason as model1.
+    sc2.walkZ += sc2.walkSpeed * delta;
+    if (!sc2.isFadingOut && sc2.walkZ >= endZ2) {
+      sc2.isFadingOut = true;
+      sc2.fadeState.fadingIn = false;
+      sc2.fadeState.fadingOut = true;
+      sc2.fadeState.fadeOutStart = performance.now();
+      sc2.fadeState.fadeOutFrom = sc2.fadeState.opacity;
+      sc2.fadeState.fadeOutDuration = 900; // ms
+    }
+
     // Drive fade-in manually (no GSAP) so opacity is guaranteed correct
     if (sc2.fadeState.fadingIn) {
       const elapsed = performance.now() - sc2.fadeState.fadeInStart;
@@ -1997,6 +2155,8 @@ function renderLoop() {
       sc2.fadeState.opacity = sc2.fadeState.fadeOutFrom * (1 - t);
       if (t >= 1) {
         sc2.fadeState.fadingOut = false;
+        sc2.fadeState.opacity = 0;
+        setObjectOpacity(sc2.model, 0);
         sc2.model.visible = false;
         sc2.isFadingOut = false;
         if (sc2.action) sc2.action.stop();
@@ -2010,19 +2170,6 @@ function renderLoop() {
         mats.forEach(m => { m.transparent = true; m.depthWrite = false; m.opacity = targetOp; m.needsUpdate = true; });
       }
     });
-    const endZ2 = sc2.endZ ?? 0;
-    if (sc2.walkZ === undefined) sc2.walkZ = sc2.startZ;
-    if (!sc2.isFadingOut) {
-      sc2.walkZ += sc2.walkSpeed * delta;
-      if (sc2.walkZ >= endZ2) {
-        sc2.isFadingOut = true;
-        sc2.fadeState.fadingIn = false;
-        sc2.fadeState.fadingOut = true;
-        sc2.fadeState.fadeOutStart = performance.now();
-        sc2.fadeState.fadeOutFrom = sc2.fadeState.opacity;
-        sc2.fadeState.fadeOutDuration = 600; // ms
-      }
-    }
   }
 
   // ── Ankle markers + connector ──
@@ -2031,7 +2178,7 @@ function renderLoop() {
     if (sc) {
       const z = (sc.walkZ ?? sc.startZ) + ankleDebug.laneZOffset;
       const z2 = (sc.walkZ ?? sc.startZ) + ankleDebug.marker2ZOffset;
-      const y = sc.laneY + ankleDebug.dy;
+      const y = ankleDebug.laneY + ankleDebug.dy; // use ankleDebug.laneY directly, independent of model position
       const mirrorX = 2 * ThreeDPosition[0] - sc.laneX;
       const m1x = sc.laneX + ankleDebug.marker1XOffset;
       state.ankleMarker1.position.set(m1x, y, z);
@@ -2039,11 +2186,10 @@ function renderLoop() {
       state.ankleMarker1.visible = true;
 
       const y2 = y + ankleDebug.marker2YOffset;
-      const sc2Active = !!(state.threeDScene2?.model?.visible && state.threeDScene2.fadeState.opacity > 0.01);
       if (state.ankleMarker2) {
         state.ankleMarker2.position.set(mirrorX + ankleDebug.marker2XOffset, y2, z2);
         state.ankleMarker2.scale.setScalar(ankleDebug.markerScale);
-        state.ankleMarker2.visible = sc2Active;
+        state.ankleMarker2.visible = true;
       }
 
       if (state.ankleConnector) {
@@ -2051,7 +2197,7 @@ function renderLoop() {
         pos[0] = m1x;                                   pos[1] = y;  pos[2] = z;
         pos[3] = mirrorX + ankleDebug.marker2XOffset;  pos[4] = y2; pos[5] = z2;
         state.ankleConnector.geometry.attributes.position.needsUpdate = true;
-        state.ankleConnector.visible = sc2Active;
+        state.ankleConnector.visible = true;
       }
     }
   }
@@ -2113,11 +2259,22 @@ function renderLoop() {
 // RESIZE
 // ─────────────────────────────────────────────
 
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+// Exposed so the HTML script can drive resizes (aspect-ratio mode + free window resize)
+window.resizeScene = function(w, h) {
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
+  renderer.setSize(w, h);
+  const res = new THREE.Vector2(w, h);
+  [state.ankleMarker1, state.ankleMarker2].forEach(m => {
+    if (m?.material) m.material.resolution.copy(res);
+  });
+};
+
+// Restart everything from t=0 (called on palette change, aspect-ratio toggle, etc.)
+window.restartAnimation = function() {
+  initDimensionFrameOverlay();
+  animateCameraToCube();
+};
 
 // ─────────────────────────────────────────────
 // BOOT
@@ -2138,38 +2295,37 @@ boot();
 // ─────────────────────────────────────────────
 // DEBUG GUI
 // ─────────────────────────────────────────────
-(function initDebugGUI() {
-  const gui = new GUI({ title: 'Debug', width: 240 });
-  gui.domElement.style.position = 'fixed';
-  gui.domElement.style.top = '1rem';
-  gui.domElement.style.right = '1rem';
-  gui.domElement.style.zIndex = '200';
+// (function initDebugGUI() {
+//   const gui = new GUI({ title: 'Debug', width: 240 });
+//   gui.domElement.style.position = 'fixed';
+//   gui.domElement.style.top = '1rem';
+//   gui.domElement.style.right = '1rem';
+//   gui.domElement.style.zIndex = '200';
 
-  const ankle = gui.addFolder('Ankle Marker');
-  ankle.add(ankleDebug, 'dy', -30, 5, 0.1).name('Y offset (dy)').onChange(() => {
-    // live — render loop picks it up automatically
-  });
-  ankle.add(ankleDebug, 'laneY', 0, 40, 0.05).name('Model laneY').onChange(v => {
-    if (state.threeDScene)  state.threeDScene.laneY  = v;
-    if (state.threeDScene2) state.threeDScene2.laneY = v;
-  });
-  ankle.add(ankleDebug, 'laneX', -5, 5, 0.05).name('Model laneX offset').onChange(v => {
-    const x = ThreeDPosition[0] - v;
-    if (state.threeDScene)  state.threeDScene.laneX  = x;
-    if (state.threeDScene2) state.threeDScene2.laneX = x;
-  });
-  ankle.add(ankleDebug, 'laneZOffset', -20, 20, 0.5).name('Marker 1 Z offset');
-  ankle.add(ankleDebug, 'markerScale', 0.1, 20, 0.1).name('Marker scale');
-  ankle.add(ankleDebug, 'marker1XOffset', -50, 50, 0.1).name('Marker 1 X offset');
-  ankle.add(ankleDebug, 'marker2XOffset', -50, 50, 0.1).name('Marker 2 X offset');
-  ankle.add(ankleDebug, 'marker2YOffset', -30, 30, 0.1).name('Marker 2 Y offset');
-  ankle.add(ankleDebug, 'marker2ZOffset', -20, 20, 0.5).name('Marker 2 Z offset');
-  ankle.open();
+//   const ankle = gui.addFolder('Ankle Marker');
+//   ankle.add(ankleDebug, 'dy', -30, 5, 0.1).name('Y offset (dy)').onChange(() => {
+//     // live — render loop picks it up automatically
+//   });
+//   ankle.add(ankleDebug, 'laneY', 0, 50, 0.05).name('Marker 1 Y pos').onChange(() => {
+//     // live — render loop reads ankleDebug.laneY directly for ankle marker position
+//   });
+//   ankle.add(ankleDebug, 'laneX', -5, 5, 0.05).name('Model laneX offset').onChange(v => {
+//     const x = ThreeDPosition[0] - v;
+//     if (state.threeDScene)  state.threeDScene.laneX  = x;
+//     if (state.threeDScene2) state.threeDScene2.laneX = x;
+//   });
+//   ankle.add(ankleDebug, 'laneZOffset', -20, 20, 0.5).name('Marker 1 Z offset');
+//   ankle.add(ankleDebug, 'markerScale', 0.1, 20, 0.1).name('Marker scale');
+//   ankle.add(ankleDebug, 'marker1XOffset', -50, 50, 0.1).name('Marker 1 X offset');
+//   ankle.add(ankleDebug, 'marker2XOffset', -50, 50, 0.1).name('Marker 2 X offset');
+//   ankle.add(ankleDebug, 'marker2YOffset', -30, 30, 0.1).name('Marker 2 Y offset');
+//   ankle.add(ankleDebug, 'marker2ZOffset', -20, 20, 0.5).name('Marker 2 Z offset');
+//   ankle.open();
 
-  // Log current values to console for copy-paste into code
-  gui.add({ log() {
-    console.log('ankleDebug snapshot:', JSON.stringify(ankleDebug));
-    const sc = state.threeDScene;
-    if (sc) console.log('threeDScene laneX:', sc.laneX, 'laneY:', sc.laneY);
-  }}, 'log').name('📋 Log values to console');
-})();
+//   // Log current values to console for copy-paste into code
+//   gui.add({ log() {
+//     console.log('ankleDebug snapshot:', JSON.stringify(ankleDebug));
+//     const sc = state.threeDScene;
+//     if (sc) console.log('threeDScene laneX:', sc.laneX, 'laneY:', sc.laneY);
+//   }}, 'log').name('📋 Log values to console');
+// })();

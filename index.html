@@ -1,32 +1,111 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <link href="https://fonts.googleapis.com/css2?family=Turret+Road:wght@200;300;400;500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@400;700&display=swap" rel="stylesheet">
+
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bridge Point Cloud Viewer</title>
   <style>
+    :root {
+      --p-matte: rgba(13,0,255,1);
+      --p-border: rgba(194,191,255,0.48);
+      --p-text: #DBD9FF;
+      --p-canvas-bg: #0d00ff;
+      --p-bar-bg: rgba(7,3,54,0.72);
+      --p-bar-border: rgba(194,191,255,0.45);
+      --p-bar-color: #dbd9ff;
+      --p-btn-bg: rgba(12,8,84,0.9);
+      --p-btn-border: rgba(194,191,255,0.55);
+    }
     body {
       margin: 0;
       overflow: hidden;
-      font-family: "Avenir Next Condensed", "Futura", "Trebuchet MS", sans-serif;
+      background-color: var(--p-canvas-bg);
+      font-family: "Turret Road", "Avenir Next Condensed", "Futura", "Trebuchet MS", sans-serif;
     }
-    #canvas-container {
-      width: 100vw;
-      height: 100vh;
-      background-color: #0D00FF;
+    #scene-root {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      z-index: 56;
+      container-type: size;
     }
-    #loading {
-      position: absolute;
+    body.ratio-active #scene-root {
+      inset: auto;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      color: #DBD9FF;
-      font-size: 24px;
+      outline: 0.5px dotted var(--p-text);
+    }
+    #black-bars {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: var(--p-canvas-bg);
+      z-index: 55; /* below scene-root (56) */
+    }
+    body.ratio-active #black-bars {
+      display: block;
+    }    #canvas-container {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      height: 100%;
+      background-color: transparent;
+    }
+    #loading {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       z-index: 100;
+      opacity: 1;
+      text-shadow: 0 0 18px var(--p-text);
+      backdrop-filter: blur(14px) brightness(0.5);
+      -webkit-backdrop-filter: blur(14px) brightness(0.5);
+      transition: backdrop-filter 0.8s ease, -webkit-backdrop-filter 0.8s ease,
+                  background 0.8s ease, opacity 0.5s ease;
+    }
+    #loading-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      width: clamp(200px, 40vw, 480px);
+    }
+    #loading-label {
+      color: var(--p-text);
+      font-size: clamp(0.75rem, 1.2vw, 1rem);
+      letter-spacing: 0.12em;
       text-shadow: 0 0 18px rgba(98, 89, 255, 0.5);
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+    }
+    #loading-track {
+      width: 100%;
+      height: 2px;
+      background: rgba(219,217,255,0.18);
+      position: relative;
+      overflow: hidden;
+    }
+    #loading-bar {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 0%;
+      background: var(--p-text);
+      box-shadow: 0 0 10px rgba(219,217,255,0.6);
+      transition: width 0.15s linear;
     }
     #dimension-overlay {
-      position: fixed;
+      position: absolute;
       inset: 0;
       z-index: 60;
       pointer-events: none;
@@ -42,7 +121,7 @@
     .dimension-layer {
       position: absolute;
       box-sizing: border-box;
-      border: 1px solid rgba(194, 191, 255, 0.48);
+      border: 0.5px solid var(--p-border);
       border-radius: 0;
       background: transparent;
       will-change: inset;
@@ -55,7 +134,7 @@
       position: absolute;
       top: 0.6rem;
       right: 0.8rem;
-      color: rgba(219, 217, 255, 0.97);
+      color: var(--p-text);
       letter-spacing: 0.08em;
       font-weight: 700;
       font-size: clamp(1rem, 2vw, 2.1rem);
@@ -65,29 +144,29 @@
     #dimension-layer-4d {
       inset: 0;
       z-index: 4;
-      --matte-color: rgba(13, 0, 255, 1);
-      filter:brightness(0.6);
+      --matte-color: var(--p-matte);
+      filter: brightness(0.88);
     }
     #dimension-layer-3d {
       inset: 0;
       z-index: 3;
-      --matte-color: rgba(13, 0, 255, 1);
-      filter:brightness(0.7);
+      --matte-color: var(--p-matte);
+      filter: brightness(0.92);
     }
     #dimension-layer-2d {
       inset: 0;
       z-index: 2;
-      --matte-color: rgba(13, 0, 255, 1);
-      filter:brightness(0.8);
+      --matte-color: var(--p-matte);
+      filter: brightness(0.96);
     }
     #dimension-layer-1d {
       inset: 0;
       z-index: 1;
-      --matte-color: rgba(13, 0, 255, 1);
-      filter:brightness(0.9);
+      --matte-color: var(--p-matte);
+      filter: brightness(1.0);
     }
     #riso-grain {
-      position: fixed;
+      position: absolute;
       inset: 0;
       z-index: 90;
       pointer-events: none;
@@ -121,27 +200,46 @@
       right: 1rem;
       bottom: 1rem;
       z-index: 120;
-      display: flex;
+      display: none;
       align-items: center;
       gap: 0.65rem;
       padding: 0.55rem 0.7rem;
-      border: 1px solid rgba(194, 191, 255, 0.45);
-      background: rgba(7, 3, 54, 0.72);
+      border: 0.5px solid var(--p-bar-border);
+      background: var(--p-bar-bg);
       backdrop-filter: blur(6px);
-      color: #dbd9ff;
+      color: var(--p-bar-color);
       box-sizing: border-box;
     }
     #timeline-controls button {
-      border: 1px solid rgba(194, 191, 255, 0.55);
-      background: rgba(12, 8, 84, 0.9);
-      color: #dbd9ff;
+      border: 0.5px solid var(--p-btn-border);
+      background: var(--p-btn-bg);
+      color: var(--p-bar-color);
       padding: 0.4rem 0.7rem;
       cursor: pointer;
       font-size: 0.9rem;
       font-family: inherit;
     }
     #timeline-controls button:hover {
-      background: rgba(17, 12, 112, 0.95);
+      filter: brightness(1.3);
+    }
+    .palette-btn {
+      width: 1.1rem;
+      height: 1.1rem;
+      padding: 0 !important;
+      border-radius: 50%;
+      flex-shrink: 0;
+      cursor: pointer;
+      position: relative;
+    }
+    .palette-btn.active {
+      outline: 2px solid var(--p-bar-color);
+      outline-offset: 2px;
+    }
+    .palette-sep {
+      width: 1px;
+      height: 1.4rem;
+      background: var(--p-btn-border);
+      flex-shrink: 0;
     }
     #timeline-scrubber {
       flex: 1;
@@ -150,130 +248,154 @@
     #timeline-time {
       min-width: 8rem;
       text-align: right;
-      font-size: 0.82rem;
       opacity: 0.9;
     }
     /* ── Frame-anchored text overlay ── */
+    .text-size {
+      letter-spacing: 0.08em;
+      font-size: clamp(0.4rem, 0.75vw, 1rem);
+      font-weight: 500;
+      text-shadow: 0 0 18px var(--p-bar-bg);
+    }
+    .text-size-lg {
+      font-size: clamp(0.6rem, 1vw, 1.2rem);
+      font-weight: 500;
+      text-shadow: 0 0 18px var(--p-bar-bg);
+    }
     #frame-text-overlay {
+      position: absolute;
+      inset: 0;
       pointer-events: none;
       user-select: none;
     }
-    #text-title {
-      position: fixed;
-      left: 10%;
-      top: 5%;
-      font-size: clamp(1.1rem, 2vw, 2.2rem);
-      font-weight: 700;
-      color: #DBD9FF;
-      letter-spacing: 0.04em;
+    #text-unbroken {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+      pointer-events: none;
+      user-select: none;
+      line-height: 1.7;
+      text-align: center;
+      gap: 0;
+      opacity: 0.15;
+      font-family: "Aref Ruqaa", serif;
+      filter: url(#pixelate);
+      transform: translate(0%, -2%);
+    }
+    #text-unbroken span {
+      display: block;
+      font-size: clamp(2rem, 16cqw, 18cqw);
+      font-weight: 400;
+      color: transparent;
+      -webkit-text-stroke: 2px var(--p-text);
+      letter-spacing: -0.02em;
+    }
+    .frame-dot {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: var(--p-bar-border);
+      opacity: 0.8;
+    }
+    .frame-dot.top-left    { top: -5px;    left: -5px; }
+    .frame-dot.top-right   { top: -5px;    right: -5px; }
+    .frame-dot.bottom-right { bottom: -5px; right: -5px; }
+    .frame-dot.bottom-left  { bottom: -5px; left: -5px; }
+    #logo-overlay {
+      position: absolute;
+      left: 6.5%;
+      top: 2%;
+      height: 2rem;
+      width: auto;
       z-index: 70;
-      line-height: 1.1;
+      pointer-events: none;
+    }
+    body.aspect-narrow #text-event {
+      
+      left: 5.2%;
+    }
+    body.aspect-narrow #text-chinese {
+      right: 5.2%;
+    }
+    body.aspect-narrow #text-unbroken {
+      transform: translateY(0%);
+      line-height: 2.5;
     }
     #text-event {
-      position: fixed;
-      right: 10%;
-      top: 5%;
-      text-align: right;
-      font-size: clamp(0.5rem, 0.75vw, 0.78rem);
-      color: #DBD9FF;
+      position: absolute;
+      left: 5.8%;
+      top: 6.7%;
+      padding-left: 0.8rem;
+      text-align: left;
+      color: var(--p-text);
       letter-spacing: 0.07em;
       z-index: 70;
       display: flex;
       flex-direction: column;
-      gap: 0.15em;
       line-height: 1.4;
     }
-    /* Shanghai Venue – 3D frame top-right corner (right:20%, top:20%) */
+    /* Shanghai Venue – 2nd frame (3D) top-right corner */
     #text-venue {
-      position: fixed;
-      right: 10%; /* spans from 4D right edge inward to 3D right edge */
-      top: 20%;
+      position: absolute;
+      right: 11%;
+      top: calc(11% + 0.5rem);
+      padding-right: 0.8rem;
       display: flex;
       flex-direction: column;
       align-items: flex-end;
       z-index: 70;
     }
     #text-venue .tag-label {
-      font-size: clamp(0.5rem, 0.75vw, 0.78rem);
-      color: #DBD9FF;
+      color: var(--p-text);
       letter-spacing: 0.07em;
-      margin-bottom: 0.3rem;
     }
-    #text-venue .tag-row {
-      display: flex;
-      align-items: center;
-      width: 10vw;
-    }
-    #text-venue .tag-line {
-      flex: 1;
-      height: 1px;
-      background: #DBD9FF;
-      opacity: 0.7;
-    }
-    #text-venue .tag-dot {
-      width: 5px;
-      height: 5px;
-      background: #DBD9FF;
-      flex-shrink: 0;
-    }
-    /* Date – 3D frame bottom-left corner (left:20%, bottom:20%) */
+    /* Date – 1D frame bottom-left corner */
     #text-date {
-      position: fixed;
-      left: 10%; /* spans from 4D left edge inward to 3D left edge */
-      bottom: 20%;
+      position: absolute;
+      left: 11%;
+      bottom: calc(11% + 0.5rem);
+      padding-left: 0.8rem;
       display: flex;
       flex-direction: column;
       z-index: 70;
-    }
-    #text-date .tag-row {
-      display: flex;
-      align-items: center;
-      width: 10vw;
-      margin-bottom: 0.3rem;
-    }
-    #text-date .tag-dot {
-      width: 5px;
-      height: 5px;
-      background: #DBD9FF;
-      flex-shrink: 0;
-    }
-    #text-date .tag-line {
-      flex: 1;
-      height: 1px;
-      background: #DBD9FF;
-      opacity: 0.7;
     }
     #text-date .tag-label {
-      font-size: clamp(0.5rem, 0.75vw, 0.78rem);
-      color: #DBD9FF;
+      color: var(--p-text);
       letter-spacing: 0.07em;
     }
-    /* Chinese text – 4D frame bottom-left (left:10%, bottom:~5%) */
+    /* Chinese text – 4D frame bottom-right */
     #text-chinese {
-      position: fixed;
-      left: 10%;
-      bottom: 5%;
+      position: absolute;
+      right: 5.8%;
+      bottom: 6.7%;
+      padding-right: 0.8rem;
       display: flex;
       flex-direction: column;
+      align-items: flex-end;
+      text-align: right;
       z-index: 70;
-    }
-    #text-chinese .tag-row {
-      display: flex;
-      align-items: center;
-      width: 8vw;
-      margin-bottom: 0.3rem;
-    }
-    #text-chinese .tag-line {
-      flex: 1;
-      height: 1px;
-      background: #DBD9FF;
-      opacity: 0.7;
+      opacity: 0.8;
+      scale: 1.01;
     }
     #text-chinese .tag-label {
-      font-size: clamp(0.5rem, 0.75vw, 0.78rem);
-      color: #DBD9FF;
+      color: var(--p-text);
       letter-spacing: 0.1em;
       opacity: 0.85;
+    }
+
+    .aspect-btn {
+      font-size: 0.72rem;
+      padding: 0.3rem 0.5rem !important;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .aspect-btn.active {
+      outline: 2px solid var(--p-bar-color);
+      outline-offset: 2px;
     }
 
     @keyframes risoGrainJitter {
@@ -301,83 +423,239 @@
   </style>
 </head>
 <body>
-  <div id="loading">Loading point cloud...</div>
+  <div id="black-bars" aria-hidden="true"></div>
+  <div id="scene-root">
+  <div id="loading">
+    <div id="loading-content">
+      <div id="loading-label">
+        <span>Loading</span>
+        <span id="loading-pct">0%</span>
+      </div>
+      <div id="loading-track">
+        <div id="loading-bar"></div>
+      </div>
+    </div>
+  </div>
   <div id="canvas-container"></div>
   <div id="dimension-overlay" aria-hidden="true">
     <div id="dimension-stack">
       <div id="dimension-layer-4d" class="dimension-layer">
         <div class="dimension-layer-label"></div>
+        <div class="frame-dot top-left"></div>
+         <div class="frame-dot bottom-right"></div>
       </div>
       <div id="dimension-layer-3d" class="dimension-layer">
         <div class="dimension-layer-label"></div>
+        <div class="frame-dot top-right"></div>
+        <div class="frame-dot bottom-left"></div>
       </div>
       <div id="dimension-layer-2d" class="dimension-layer">
         <div class="dimension-layer-label"></div>
+        
       </div>
       <div id="dimension-layer-1d" class="dimension-layer">
         <div class="dimension-layer-label"></div>
+       
       </div>
     </div>
   </div>
   <div id="riso-grain" aria-hidden="true"></div>
 
+  <!-- SVG filter defs -->
+  <svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+    <defs>
+      <!-- pixelate: tile size controlled by width/height on feComposite + radius on feMorphology -->
+      <filter id="pixelate" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
+        <feFlood x="2" y="2" height="1" width="1"/>
+        <feComposite width="4" height="4"/>
+        <feTile result="grid"/>
+        <feComposite in="SourceGraphic" in2="grid" operator="in"/>
+        <feMorphology operator="dilate" radius="1.5"/>
+      </filter>
+    </defs>
+  </svg>
+
   <!-- Frame-anchored text overlay (fixed position, does not scale with frames) -->
   <div id="frame-text-overlay" aria-hidden="true">
 
     <!-- Top-left: title (4D frame top-left corner) -->
-    <div id="text-title">String Theory</div>
+    <!-- <div id="text-title">String Theory</div> -->
 
-    <!-- Top-right: event info (4D frame top-right corner) -->
-    <div id="text-event">
+    <!-- Large background text: Unbroken Thread -->
+    <div id="text-unbroken">
+      <span>unbroken</span>
+      <span>thread</span>
+    </div>
+
+    <!-- Logo: top-left, above event text -->
+    <img id="logo-overlay" src="public/logo-white.png" alt="Logo">
+
+    <!-- 4D frame top-left: event info -->
+    <div id="text-event" class="text-size">
       <span>The Hong Kong Polytechnic University School of Fashion and Textiles</span>
       <span>MA in Fashion &amp; Textile Design Graduate Show</span>
     </div>
 
-    <!-- Right side: venue tag (3D frame top-right corner, line out to 4D frame) -->
+    <!-- 3D frame top-right: venue -->
     <div id="text-venue">
-      <span class="tag-label">Shanghai Venue</span>
-      <div class="tag-row">
-        <span class="tag-line"></span>
-        <span class="tag-dot"></span>
-      </div>
+      <span class="tag-label text-size-lg">Shanghai</span>
+      <span class="tag-label text-size-lg">Shanghai</span>
     </div>
 
-    <!-- Bottom-left: date tag (3D frame bottom-left corner, line out to 4D frame) -->
+    <!-- 3D frame bottom-left: date -->
     <div id="text-date">
-      <div class="tag-row">
-        <span class="tag-dot"></span>
-        <span class="tag-line"></span>
-      </div>
-      <span class="tag-label">05.03.2026 (Sat) | 14:00</span>
+      <span class="tag-label text-size-lg">05.03.2026 (Sat) | 14:00</span>
+      <span class="tag-label text-size-lg" style="font-weight: 400">2026年3月5日 | 下午2点</span>
     </div>
 
-    <!-- Bottom-left: Chinese text (4D frame bottom-left) -->
+    <!-- 1D frame bottom-right: Chinese text -->
     <div id="text-chinese">
-      <div class="tag-row">
-        <span class="tag-line"></span>
-      </div>
-      <span class="tag-label">CHINESE TEXT</span>
+      <span class="tag-label text-size">香港理工大学时装及纺织学院</span>
+      <span class="tag-label text-size">服装及纺织品设计文学硕士毕业生时装秀</span>
     </div>
 
   </div>
+  </div><!-- /scene-root -->
   <div id="timeline-controls" aria-label="Animation timeline controls">
     <button id="timeline-play-pause" type="button">Pause</button>
     <input id="timeline-scrubber" type="range" min="0" max="1" step="0.001" value="0">
     <span id="timeline-time">0.00 / 0.00s</span>
-    <button id="timeline-capture" type="button">Capture PNG</button>
+    <button id="timeline-capture" type="button">Capture</button>
+    <div class="palette-sep"></div>
+    <button class="palette-btn" data-palette="blue"   type="button" style="background:#0d00ff" title="Blue"></button>
+    <button class="palette-btn" data-palette="black"  type="button" style="background:#000000" title="Black"></button>
+    <button class="palette-btn" data-palette="purple" type="button" style="background:#0d0020" title="Purple"></button>
+    <button class="palette-btn active" data-palette="gray"   type="button" style="background:#e0e0e0" title="Gray"></button>
+    <div class="palette-sep"></div>
+    <button class="aspect-btn" data-aspect="16:9" type="button" title="16:9 landscape crop">16:9</button>
+    <button class="aspect-btn" data-aspect="9:16" type="button" title="9:16 portrait crop">9:16</button>
+    <button class="aspect-btn" data-aspect="1:1"  type="button" title="1:1 square crop">1:1</button>
   </div>
+
+  <script>
+    function _swapLogo(paletteId) {
+      const logoEl = document.getElementById('logo-overlay');
+      if (logoEl) logoEl.src = paletteId === 'gray' ? 'public/logo-black.png' : 'public/logo-white.png';
+    }
+    document.querySelectorAll('.palette-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (window.applyPalette) window.applyPalette(btn.dataset.palette);
+        document.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        localStorage.setItem('d-cross-palette', btn.dataset.palette);
+        _swapLogo(btn.dataset.palette);
+        if (window.restartAnimation) window.restartAnimation();
+      });
+    });
+    // Restore palette + aspect from localStorage on load (falls back to gray / no ratio)
+    window.addEventListener('load', () => {
+      const savedPalette = localStorage.getItem('d-cross-palette') || 'gray';
+      const savedAspect  = localStorage.getItem('d-cross-aspect');
+
+      // Activate correct palette button
+      document.querySelectorAll('.palette-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.palette === savedPalette);
+      });
+      if (window.applyPalette) window.applyPalette(savedPalette);
+      _swapLogo(savedPalette);
+
+      // Restore aspect ratio if one was saved
+      if (savedAspect && _aspectRatios[savedAspect]) {
+        const btn = document.querySelector(`.aspect-btn[data-aspect="${savedAspect}"]`);
+        if (btn) btn.classList.add('active');
+        _applyAspect(savedAspect);
+      }
+    });
+
+    // ── Aspect-ratio render mode ──
+    const _aspectRatios = { '16:9': 16/9, '9:16': 9/16, '1:1': 1 };
+    let _currentAspect = null;
+    const _sceneRoot = document.getElementById('scene-root');
+
+    function _applyAspect(key) {
+      if (!key) {
+        _sceneRoot.style.width  = '';
+        _sceneRoot.style.height = '';
+        document.body.classList.remove('ratio-active');
+        document.body.classList.remove('aspect-narrow');
+        if (window.resizeScene) window.resizeScene(window.innerWidth, window.innerHeight);
+        _currentAspect = null;
+        return;
+      }
+      const ratio = _aspectRatios[key];
+      const vw = window.innerWidth, vh = window.innerHeight;
+      let w, h;
+      if (vw / vh > ratio) { h = vh; w = h * ratio; }
+      else                  { w = vw; h = w / ratio; }
+      w = Math.round(w); h = Math.round(h);
+      _sceneRoot.style.width  = w + 'px';
+      _sceneRoot.style.height = h + 'px';
+      document.body.classList.add('ratio-active');
+      document.body.classList.toggle('aspect-narrow', key === '9:16' || key === '1:1');
+      if (window.resizeScene) window.resizeScene(w, h);
+      _currentAspect = key;
+    }
+
+    document.querySelectorAll('.aspect-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.aspect;
+        const isActive = btn.classList.contains('active');
+        document.querySelectorAll('.aspect-btn').forEach(b => b.classList.remove('active'));
+        if (isActive) {
+          _applyAspect(null);
+          localStorage.removeItem('d-cross-aspect');
+        } else {
+          btn.classList.add('active');
+          _applyAspect(key);
+          localStorage.setItem('d-cross-aspect', key);
+        }
+        if (window.restartAnimation) window.restartAnimation();
+      });
+    });
+
+    // single resize handler — covers both free viewport and constrained ratio
+    window.addEventListener('resize', () => {
+      if (_currentAspect) _applyAspect(_currentAspect);
+      else if (window.resizeScene) window.resizeScene(window.innerWidth, window.innerHeight);
+    });
+
+    // Auto-fullscreen on first user gesture (browsers block it without interaction)
+    function _enterFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+    }
+    function _onFirstGesture() {
+      _enterFullscreen();
+      document.removeEventListener('click', _onFirstGesture);
+      document.removeEventListener('keydown', _onFirstGesture);
+    }
+    document.addEventListener('click', _onFirstGesture);
+    document.addEventListener('keydown', _onFirstGesture);
+
+    // F — toggle fullscreen
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'f' && e.key !== 'F') return;
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    });
+  </script>
 
   <script type="importmap">
     {
       "imports": {
         "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
         "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-        "gsap": "https://cdn.jsdelivr.net/npm/gsap@3.12.5/+esm"
+        "gsap": "https://cdn.jsdelivr.net/npm/gsap@3.12.5/+esm",
+        "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.19/+esm"
       }
     }
   </script>
 
-  <script type="module" src="main-human.js">
+  <script type="module" src="main-human2.js">
   </script>
 </body>
 </html>
