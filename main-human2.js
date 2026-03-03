@@ -15,12 +15,12 @@ const ankleDebug = {
   dy: -30,          // vertical offset of ankle box from laneY
   laneY: 40,        // ThreeDPosition[1] - 0.3  (model Y height)
   laneX: 0,       // ThreeDPosition[0] - laneX  (model X lane)
-  laneZOffset: 6,   // Z shift applied on top of walkZ (negative = toward camera / left)
+  laneZOffset: 4,   // Z shift applied on top of walkZ (negative = toward camera / left)
   markerScale: 8.0, // uniform scale of ankle wireframe boxes
-  marker1XOffset: -3,    // independent X offset for ankle marker 1
-  marker2XOffset: 20.7, // additional X offset for ankle marker 2 (marker 1 stays fixed)
-  marker2ZOffset: 6,    // independent Z offset for ankle marker 2
-  marker2YOffset: 0.2,  // independent Y offset for ankle marker 2
+  marker1XOffset: -4,    // independent X offset for ankle marker 1
+  marker2XOffset: 18, // additional X offset for ankle marker 2 (marker 1 stays fixed)
+  marker2ZOffset: 12,    // independent Z offset for ankle marker 2
+  marker2YOffset: 0,  // independent Y offset for ankle marker 2
 };
 
 // Secondary runway clone appears as a partial-opacity "ghost trail".
@@ -56,11 +56,12 @@ const blueMono = {
   ambientLight: 0x6259ff,
   keyLight: 0xdbd9ff,
   fillLight: 0x04004c,
-  gridLine: 0xffffff,
+  gridLine: 0x333333,
   pixelBg: 0xc2bfff,
   pixelLine: 0x030033,
   pointCloud: 0xffffff,
-  model: 0x3126ff, // 3d object model
+  model: 0x3126ff, // 3d object model (4D mesh)
+  modelRunway: 0x0a0566, // runway FBX human model
   reservedTint: 0x928cff,
   monoDark: 0x01001a,
   monoLight: 0xc2bfff,
@@ -69,10 +70,10 @@ const blueMono = {
 };
 
 const palettes = {
-  blue:   { three: { sceneBg: 0x0d00ff, ambientLight: 0x6259ff, keyLight: 0xdbd9ff, fillLight: 0x04004c, gridLine: 0xffffff, monoDark: 0x01001a, monoLight: 0xc2bfff, model: 0x1508cc }, css: { '--p-matte': 'rgba(13,0,255,1)', '--p-border': 'rgba(194,191,255,0.48)', '--p-text': '#DBD9FF', '--p-canvas-bg': '#0d00ff', '--p-bar-bg': 'rgba(7,3,54,0.72)', '--p-bar-border': 'rgba(194,191,255,0.45)', '--p-bar-color': '#dbd9ff', '--p-btn-bg': 'rgba(12,8,84,0.9)', '--p-btn-border': 'rgba(194,191,255,0.55)' } },
-  black:  { three: { sceneBg: 0x000000, ambientLight: 0x888888, keyLight: 0xffffff, fillLight: 0x111111, gridLine: 0xffffff, monoDark: 0x050505, monoLight: 0xdddddd, model: 0x444444 }, css: { '--p-matte': 'rgba(0,0,0,1)', '--p-border': 'rgba(255,255,255,0.4)', '--p-text': '#ffffff', '--p-canvas-bg': '#000000', '--p-bar-bg': 'rgba(10,10,10,0.82)', '--p-bar-border': 'rgba(255,255,255,0.4)', '--p-bar-color': '#ffffff', '--p-btn-bg': 'rgba(30,30,30,0.9)', '--p-btn-border': 'rgba(255,255,255,0.45)' } },
-  purple: { three: { sceneBg: 0x0d0020, ambientLight: 0x7b3bff, keyLight: 0xe8d5ff, fillLight: 0x1a0040, gridLine: 0xffffff, monoDark: 0x080018, monoLight: 0xd4b8ff, model: 0x4a18cc }, css: { '--p-matte': 'rgba(13,0,32,1)', '--p-border': 'rgba(212,184,255,0.5)', '--p-text': '#e8d5ff', '--p-canvas-bg': '#0d0020', '--p-bar-bg': 'rgba(15,5,40,0.82)', '--p-bar-border': 'rgba(212,184,255,0.45)', '--p-bar-color': '#e8d5ff', '--p-btn-bg': 'rgba(30,10,70,0.9)', '--p-btn-border': 'rgba(212,184,255,0.55)' } },
-  gray:   { three: { sceneBg: 0xe0e0e0, ambientLight: 0x999999, keyLight: 0xffffff, fillLight: 0x666666, gridLine: 0x333333, monoDark: 0x444444, monoLight: 0xf5f5f5, model: 0x333333 }, css: { '--p-matte': 'rgba(220,220,220,1)', '--p-border': 'rgba(80,80,80,0.5)', '--p-text': '#222222', '--p-canvas-bg': '#e0e0e0', '--p-bar-bg': 'rgba(200,200,200,0.85)', '--p-bar-border': 'rgba(80,80,80,0.45)', '--p-bar-color': '#222222', '--p-btn-bg': 'rgba(180,180,180,0.9)', '--p-btn-border': 'rgba(80,80,80,0.6)' } },
+  blue:   { three: { sceneBg: 0x0d00ff, ambientLight: 0x6259ff, keyLight: 0xdbd9ff, fillLight: 0x04004c, gridLine: 0xffffff, monoDark: 0x01001a, monoLight: 0xc2bfff, model: 0x1508cc, modelRunway: 0x0a0566 }, css: { '--p-matte': 'rgba(13,0,255,1)', '--p-border': 'rgba(194,191,255,0.48)', '--p-text': '#DBD9FF', '--p-canvas-bg': '#0d00ff', '--p-bar-bg': 'rgba(7,3,54,0.72)', '--p-bar-border': 'rgba(194,191,255,0.45)', '--p-bar-color': '#dbd9ff', '--p-btn-bg': 'rgba(12,8,84,0.9)', '--p-btn-border': 'rgba(194,191,255,0.55)' } },
+  black:  { three: { sceneBg: 0x000000, ambientLight: 0x888888, keyLight: 0xffffff, fillLight: 0x111111, gridLine: 0xffffff, monoDark: 0x050505, monoLight: 0xdddddd, model: 0x444444, modelRunway: 0x1a1a1a }, css: { '--p-matte': 'rgba(0,0,0,1)', '--p-border': 'rgba(255,255,255,0.4)', '--p-text': '#ffffff', '--p-canvas-bg': '#000000', '--p-bar-bg': 'rgba(10,10,10,0.82)', '--p-bar-border': 'rgba(255,255,255,0.4)', '--p-bar-color': '#ffffff', '--p-btn-bg': 'rgba(30,30,30,0.9)', '--p-btn-border': 'rgba(255,255,255,0.45)' } },
+  purple: { three: { sceneBg: 0x0d0020, ambientLight: 0x7b3bff, keyLight: 0xe8d5ff, fillLight: 0x1a0040, gridLine: 0xffffff, monoDark: 0x080018, monoLight: 0xd4b8ff, model: 0x4a18cc, modelRunway: 0x1e0a52 }, css: { '--p-matte': 'rgba(13,0,32,1)', '--p-border': 'rgba(212,184,255,0.5)', '--p-text': '#e8d5ff', '--p-canvas-bg': '#0d0020', '--p-bar-bg': 'rgba(15,5,40,0.82)', '--p-bar-border': 'rgba(212,184,255,0.45)', '--p-bar-color': '#e8d5ff', '--p-btn-bg': 'rgba(30,10,70,0.9)', '--p-btn-border': 'rgba(212,184,255,0.55)' } },
+  gray:   { three: { sceneBg: 0xe0e0e0, ambientLight: 0x999999, keyLight: 0xffffff, fillLight: 0x666666, gridLine: 0x333333, monoDark: 0x444444, monoLight: 0xf5f5f5, model: 0xaaaaaa, modelRunway: 0x444444 }, css: { '--p-matte': 'rgba(220,220,220,1)', '--p-border': 'rgba(80,80,80,0.5)', '--p-text': '#222222', '--p-canvas-bg': '#e0e0e0', '--p-bar-bg': 'rgba(200,200,200,0.85)', '--p-bar-border': 'rgba(80,80,80,0.45)', '--p-bar-color': '#222222', '--p-btn-bg': 'rgba(180,180,180,0.9)', '--p-btn-border': 'rgba(80,80,80,0.6)' } },
 };
 
 window.applyPalette = function(id) {
@@ -80,14 +81,14 @@ window.applyPalette = function(id) {
   if (!p) return;
   const t = p.three;
   // Update blueMono so resets use the correct palette colors
-  Object.assign(blueMono, { sceneBg: t.sceneBg, ambientLight: t.ambientLight, keyLight: t.keyLight, fillLight: t.fillLight, gridLine: t.gridLine, monoDark: t.monoDark, monoLight: t.monoLight, model: t.model, pixelBg: t.monoLight });
+  Object.assign(blueMono, { sceneBg: t.sceneBg, ambientLight: t.ambientLight, keyLight: t.keyLight, fillLight: t.fillLight, gridLine: t.gridLine, monoDark: t.monoDark, monoLight: t.monoLight, model: t.model, modelRunway: t.modelRunway, pixelBg: t.monoLight });
   if (screenSceneBgMat) screenSceneBgMat.color.setHex(t.monoLight);
   // Three.js scene
   if (scene.background) scene.background.setHex(t.sceneBg);
   _ambientLight.color.setHex(t.ambientLight);
   dirLight.color.setHex(t.keyLight);
   fillLight.color.setHex(t.fillLight);
-  wireframeMaterials.forEach(mat => { gsap.killTweensOf(mat.color); mat.color.setHex(t.gridLine); });
+  wireframeMaterials.forEach(mat => { gsap.killTweensOf(mat.color); mat.color.setHex(t.gridLine); mat.opacity = 1; });
   if (flipGrid?.material?.uniforms?.monoDark) { gsap.killTweensOf(flipGrid.material.uniforms.monoDark.value); flipGrid.material.uniforms.monoDark.value.setHex(t.monoDark); }
   if (flipGrid?.material?.uniforms?.monoLight) { gsap.killTweensOf(flipGrid.material.uniforms.monoLight.value); flipGrid.material.uniforms.monoLight.value.setHex(t.monoLight); }
   flipStaticSideFaces.forEach(face => {
@@ -98,7 +99,7 @@ window.applyPalette = function(id) {
   extraReservedCubes.forEach(c => { if (c.material?.color) c.material.color.setHex(t.model); });
   [state.threeDScene?.model, state.threeDScene2?.model].forEach(m => {
     if (m) forEachObjectMaterial(m, mat => {
-      if ('color' in mat && mat.color) mat.color.setHex(t.model);
+      if ('color' in mat && mat.color) mat.color.setHex(t.modelRunway ?? t.model);
       if ('emissive' in mat && mat.emissive) mat.emissive.setHex(blueMono.emissiveModel);
     });
   });
@@ -787,7 +788,7 @@ function createGridWireframe(boundingBox) {
 
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-  const gridMat = new THREE.LineBasicMaterial({ color: blueMono.gridLine });
+  const gridMat = new THREE.LineBasicMaterial({ color: blueMono.gridLine, transparent: true, opacity: 1 });
   wireframeMaterials.push(gridMat);
   scene.add(new THREE.LineSegments(geo, gridMat));
 }
@@ -857,6 +858,8 @@ function addPixelGrid(resolution = 32) {
 let reservedCube = null;
 const extraReservedCubes = [];
 const extraCubesFade = { opacity: 0 };
+const flipGridFade = { opacity: 1 };
+const wireframeFade = { opacity: 1 };
 
 function setExtraCubesOpacity(v) {
   extraCubesFade.opacity = v;
@@ -1072,7 +1075,7 @@ function loadFourDMesh(url) {
         mat.depthWrite = true;
         if ('map' in mat && mat.map) mat.map = null;
         if ('color' in mat && mat.color) mat.color.setHex(blueMono.model);
-        if ('emissive' in mat && mat.emissive) mat.emissive.setHex(blueMono.emissiveBridge);
+        if ('emissive' in mat && mat.emissive) mat.emissive.setHex(blueMono.monoDark);
         mat.needsUpdate = true;
       });
     });
@@ -1123,7 +1126,7 @@ function loadSecondFourDMesh(url) {
         mat.depthWrite = false;
         if ('map' in mat && mat.map) mat.map = null;
         if ('color' in mat && mat.color) mat.color.setHex(blueMono.model);
-        if ('emissive' in mat && mat.emissive) mat.emissive.setHex(blueMono.emissiveBridge);
+        if ('emissive' in mat && mat.emissive) mat.emissive.setHex(blueMono.monoDark);
         mat.needsUpdate = true;
       });
     });
@@ -1179,7 +1182,7 @@ function loadPointCloud() {
       color: blueMono.pointCloud,
       roughness: 0.8,
       metalness: 0.2,
-      transparent: true, opacity: 1, depthWrite: false, depthTest: true,
+      transparent: true, opacity: 0, depthWrite: false, depthTest: true,
       wireframe: false,
     });
 
@@ -1227,7 +1230,6 @@ function loadPointCloud() {
     createFlipCenterRowLine();
     loadRunwayHuman3D('public/model.fbx');
     loadRunwayHuman2D();
-    animateCameraToCube();
   });
 }
 
@@ -1441,7 +1443,9 @@ function resetLoopSceneState(bridgeOpacity) {
 
   applyFlipGridDepth(flipTileDepthStart);
   setFlipGridOpacity(1);
+  flipGridFade.opacity = 1;
   resetFlipCascadeState(false);
+  showStaticSideFaces();
   if (flipGrid?.material?.uniforms?.monoDark) {
     gsap.killTweensOf(flipGrid.material.uniforms.monoDark.value);
     flipGrid.material.uniforms.monoDark.value.set(blueMono.monoDark);
@@ -1453,7 +1457,12 @@ function resetLoopSceneState(bridgeOpacity) {
   wireframeMaterials.forEach(mat => {
     gsap.killTweensOf(mat.color);
     mat.color.set(blueMono.gridLine);
+    mat.opacity = 1;
   });
+  gsap.killTweensOf(wireframeFade);
+  wireframeFade.opacity = 1;
+  gsap.killTweensOf(flipGridFade);
+  flipGridFade.opacity = 1;
 
   // Reset runway model state
   if (state.threeDScene?.model) {
@@ -1479,10 +1488,8 @@ function resetLoopSceneState(bridgeOpacity) {
     setObjectOpacity(m2.model, 0);
     if (m2.action) m2.action.stop();
   }
-  // sc2EverAppeared is intentionally NOT reset — marker2 + connector stay visible from loop 2 onward
+  // sc2EverAppeared is intentionally NOT reset — marker1, marker2 + connector stay visible from first appearance onward
   [state.ankleMarker1, state.ankleMarker2, state.ankleConnector].forEach(obj => {
-    // Only hide marker1; marker2 and connector always stay visible
-    if (obj === state.ankleMarker1) { if (obj) obj.visible = false; }
     if (obj?.material?.color) { gsap.killTweensOf(obj.material.color); obj.material.color.set(0xe62626); }
   });
 
@@ -1528,6 +1535,9 @@ function animateCameraToCube() {
   const returnStart = flipFadeOutStart + flipFadeOutDuration;
   const returnDuration = 4.0;
   const cycleEnd = returnStart + returnDuration;
+  const _tlAspect = document.querySelector('.aspect-btn.active')?.dataset?.aspect;
+  const _isNarrow = (_tlAspect === '9:16' || _tlAspect === '1:1');
+  const videoStartTime = _isNarrow ? 8 : 10; // portrait/square model starts 1 unit closer → 2s less travel
   const bridgeFade = { opacity: bridgeStartOpacity };
   resetLoopSceneState(bridgeStartOpacity);
   cameraLoopTimeline = gsap.timeline({
@@ -1539,9 +1549,11 @@ function animateCameraToCube() {
     },
   })
     .call(() => restartDimensionFrameTimeline(), [], 0)
+    .call(() => showStaticSideFaces(), [], 0)
     .call(() => startRunwayModel(), [], 8)   // model appears at t=8s
-    .call(() => startRunwayVideo(), [], 10)  // video starts at t=12s (adjust independently)
+    .call(() => startRunwayVideo(), [], videoStartTime)  // video start adjusted per aspect ratio
     .call(() => startRunwayGhost(), [], returnStart) // ghost + markers appear when camera returns
+    .call(() => { setFlipGridOpacity(1); flipGridFade.opacity = 1; if (flipGrid) flipGrid.visible = true; }, [], returnStart)
     .call(() => resetFlipCascadeState(true), [], flipRestartOffset)
     .call(() => fadeOutStaticSideFaces(staticSideFadeDuration), [], cameraMoveStart + staticSideFadeOffset)
     // Reset #text-unbroken to its initial state so stale GSAP values don't persist between restarts
@@ -1634,9 +1646,6 @@ function animateCameraToCube() {
       if (reservedCube?.material?.color) {
         gsap.to(reservedCube.material.color, { r: 0.6, g: 0.1, b: 0.1, duration: 5, ease: 'sine.inOut' });
       }
-      wireframeMaterials.forEach(mat => {
-        gsap.to(mat.color, { r: 0.9, g: 0.2, b: 0.2, duration: 5, ease: 'sine.inOut' });
-      });
       if (flipGrid?.material?.uniforms?.monoDark) {
         gsap.to(flipGrid.material.uniforms.monoDark.value, { r: 0.35, g: 0.04, b: 0.04, duration: 5, ease: 'sine.inOut' });
       }
@@ -1654,15 +1663,11 @@ function animateCameraToCube() {
       // Ankle markers are always red — no tween needed
     }, [], cameraMoveStart + 1)
     .call(() => {
-      // Fade wireframes back from red to palette colors
-      const targetGrid  = new THREE.Color(blueMono.gridLine);
+      // Fade flip colors back from red to palette colors
       const targetDark  = new THREE.Color(blueMono.monoDark);
       const targetLight = new THREE.Color(blueMono.monoLight);
       const dur = returnDuration * 0.7;
       const ease = 'sine.inOut';
-      wireframeMaterials.forEach(mat => {
-        gsap.to(mat.color, { r: targetGrid.r, g: targetGrid.g, b: targetGrid.b, duration: dur, ease });
-      });
       if (flipGrid?.material?.uniforms?.monoDark) {
         gsap.to(flipGrid.material.uniforms.monoDark.value, { r: targetDark.r, g: targetDark.g, b: targetDark.b, duration: dur, ease });
       }
@@ -1694,19 +1699,27 @@ function animateCameraToCube() {
       ease: 'power1.out',
       onUpdate: () => applyFlipGridDepth(flipTileDepthState.value),
     }, flipThinStart - 6)
-    .to(flipGrid?.material?.uniforms?.uOpacity ?? {}, {
-      value: 0,
+    .to(flipGridFade, {
+      opacity: 0,
       duration: flipFadeOutDuration,
       ease: 'power1.out',
-      onUpdate: () => {
-        if (flipGrid?.material?.uniforms?.uOpacity) {
-          setFlipGridOpacity(flipGrid.material.uniforms.uOpacity.value);
-        }
-      },
+      onUpdate: () => setFlipGridOpacity(flipGridFade.opacity),
       onComplete: () => {
         if (flipGrid) flipGrid.visible = false;
       },
     }, flipFadeOutStart)
+    .to(wireframeFade, {
+      opacity: 0,
+      duration: flipFadeOutDuration,
+      ease: 'power1.out',
+      onUpdate: () => wireframeMaterials.forEach(m => { m.opacity = wireframeFade.opacity; }),
+    }, flipFadeOutStart)
+    .to(wireframeFade, {
+      opacity: 1,
+      duration: returnDuration,
+      ease: 'sine.inOut',
+      onUpdate: () => wireframeMaterials.forEach(m => { m.opacity = wireframeFade.opacity; }),
+    }, returnStart)
     .to(flipCenterRowLine?.material ?? {}, {
       opacity: 0,
       duration: flipFadeOutDuration,
@@ -1855,6 +1868,8 @@ function startRunwayModel() {
 }
 
 function startRunwayGhost() {
+  // Show ankle marker 1 (hidden by resetLoopSceneState between loops)
+  if (state.ankleMarker1) state.ankleMarker1.visible = true;
   // Start ghost model (marker2 + connector are already shown by startRunwayModel)
   if (runwayGhostTrailEnabled && state.threeDScene2?.model) {
     const sc2 = state.threeDScene2;
@@ -1897,7 +1912,7 @@ function loadRunwayHuman3D(url) {
     forEachObjectMaterial(model, (material) => {
       material.flatShading = true;
       if ('map' in material && material.map) material.map = null;
-      if ('color' in material && material.color) material.color.setHex(blueMono.model);
+      if ('color' in material && material.color) material.color.setHex(blueMono.modelRunway ?? blueMono.model);
       if ('emissive' in material && material.emissive) material.emissive.setHex(blueMono.emissiveModel);
       material.transparent = true; // required for opacity fade
       material.depthWrite = false;
@@ -2020,6 +2035,7 @@ let   rafId = null;
 
 function startRenderLoop() {
   if (rafId !== null) return;
+  animateCameraToCube();
   clock.start();
   renderLoop();
 }
@@ -2176,16 +2192,18 @@ function renderLoop() {
   if (state.ankleMarker1) {
     const sc = state.threeDScene;
     if (sc) {
-      const z = (sc.walkZ ?? sc.startZ) + ankleDebug.laneZOffset;
-      const z2 = (sc.walkZ ?? sc.startZ) + ankleDebug.marker2ZOffset;
+      // Markers are fixed in world space — they do not track the walking model
+      const z = ThreeDPosition[2] + ankleDebug.laneZOffset;
+      const z2 = ThreeDPosition[2] + ankleDebug.marker2ZOffset;
       const y = ankleDebug.laneY + ankleDebug.dy; // use ankleDebug.laneY directly, independent of model position
       const mirrorX = 2 * ThreeDPosition[0] - sc.laneX;
       const m1x = sc.laneX + ankleDebug.marker1XOffset;
       state.ankleMarker1.position.set(m1x, y, z);
       state.ankleMarker1.scale.setScalar(ankleDebug.markerScale);
-      state.ankleMarker1.visible = true;
+      // visible is controlled by startRunwayGhost / resetLoopSceneState; don't force it here
 
       const y2 = y + ankleDebug.marker2YOffset;
+      state.ankleMarker1.visible = true;
       if (state.ankleMarker2) {
         state.ankleMarker2.position.set(mirrorX + ankleDebug.marker2XOffset, y2, z2);
         state.ankleMarker2.scale.setScalar(ankleDebug.markerScale);

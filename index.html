@@ -256,11 +256,14 @@
       font-size: clamp(0.4rem, 0.75vw, 1rem);
       font-weight: 500;
       text-shadow: 0 0 18px var(--p-bar-bg);
+      font-weight: 500;
     }
     .text-size-lg {
       font-size: clamp(0.6rem, 1vw, 1.2rem);
       font-weight: 500;
       text-shadow: 0 0 18px var(--p-bar-bg);
+      font-weight: 500;
+      /* color: rgb(132, 26, 26) !important; */
     }
     #frame-text-overlay {
       position: absolute;
@@ -316,10 +319,10 @@
     }
     body.aspect-narrow #text-event {
       
-      left: 5.2%;
+      left: 6%;
     }
     body.aspect-narrow #text-chinese {
-      right: 5.2%;
+      right: 6%;
     }
     body.aspect-narrow #text-unbroken {
       transform: translateY(0%);
@@ -328,7 +331,7 @@
     #text-event {
       position: absolute;
       left: 5.8%;
-      top: 6.7%;
+      top: 7%;
       padding-left: 0.8rem;
       text-align: left;
       color: var(--p-text);
@@ -342,7 +345,7 @@
     #text-venue {
       position: absolute;
       right: 11%;
-      top: calc(11% + 0.5rem);
+      top: calc(11.5% + 0.5rem);
       padding-right: 0.8rem;
       display: flex;
       flex-direction: column;
@@ -371,7 +374,7 @@
     #text-chinese {
       position: absolute;
       right: 5.8%;
-      bottom: 6.7%;
+      bottom: 7%;
       padding-right: 0.8rem;
       display: flex;
       flex-direction: column;
@@ -493,19 +496,23 @@
     <!-- 4D frame top-left: event info -->
     <div id="text-event" class="text-size">
       <span>The Hong Kong Polytechnic University School of Fashion and Textiles</span>
-      <span>MA in Fashion &amp; Textile Design Graduate Show</span>
+      <span>MA in Fashion Textile Design Graduate Show</span>
     </div>
 
     <!-- 3D frame top-right: venue -->
     <div id="text-venue">
-      <span class="tag-label text-size-lg">Shanghai</span>
-      <span class="tag-label text-size-lg">Shanghai</span>
+      <span class="tag-label text-size-lg">800SHOW Creative Park</span>
+      <span style="display:flex; align-items:center; justify-content:center;">
+        <span class="tag-label text-size-lg" style="transform:translateY(1.5px);">THE NEXT</span>
+        <span class="tag-label text-size-lg" style="font-weight: 400;">新势力&nbsp;|&nbsp;</span>
+        <span class="tag-label text-size-lg" style="font-weight: 400;">静安</span>
+        <span class="tag-label text-size-lg" style="transform:translateY(1.5px);">800SHOW</span>
+      </span>
     </div>
 
     <!-- 3D frame bottom-left: date -->
     <div id="text-date">
-      <span class="tag-label text-size-lg">05.03.2026 (Sat) | 14:00</span>
-      <span class="tag-label text-size-lg" style="font-weight: 400">2026年3月5日 | 下午2点</span>
+      <span class="tag-label text-size-lg">1.4.2026 (Wed 三) | 19:00</span>
     </div>
 
     <!-- 1D frame bottom-right: Chinese text -->

@@ -382,6 +382,21 @@ function createStaticFlipGridSides() {
 function showStaticSideFaces() {
   staticSidesHidden = false;
   staticSidesFadePending = false;
+
+  // Sync instance matrices from the current (reset) flipGrid so tiles are
+  // always shown flat and at the correct depth on every loop iteration.
+  if (flipGrid) {
+    const tempMatrix = new THREE.Matrix4();
+    for (let j = 0; j < flipStaticSideFaces.length; j++) {
+      const face = flipStaticSideFaces[j];
+      for (let k = 0; k < face.count; k++) {
+        flipGrid.getMatrixAt(k, tempMatrix);
+        face.setMatrixAt(k, tempMatrix);
+      }
+      face.instanceMatrix.needsUpdate = true;
+    }
+  }
+
   for (let i = 0; i < flipStaticSideFaces.length; i++) {
     const face = flipStaticSideFaces[i];
     face.visible = true;
@@ -1192,7 +1207,6 @@ function resetLoopSceneState(bridgeOpacity) {
   cam.fov = cameraLoopStart.fov;
   applyCameraFromState();
 
-  showStaticSideFaces();
   if (bridgeDebugMesh) {
     bridgeDebugMesh.visible = true;
   }
@@ -1205,9 +1219,13 @@ function resetLoopSceneState(bridgeOpacity) {
     reservedCube.material.opacity = 1;
   }
 
+  // Reset flipGrid first so its matrices are at depth=start, angles=0
+  // before showStaticSideFaces syncs from them.
   applyFlipGridDepth(flipTileDepthStart);
   setFlipGridOpacity(1);
   resetFlipCascadeState(false);
+
+  showStaticSideFaces();
 
   // Reset runway model state
   if (state.threeDScene?.model) {
@@ -1275,9 +1293,11 @@ function animateCameraToCube() {
     },
   })
     .call(() => restartDimensionFrameTimeline(), [], 0)
+    .call(() => showStaticSideFaces(), [], 0)
     .call(() => startRunwayModel(), [], 8)
     .call(() => resetFlipCascadeState(true), [], flipRestartOffset)
     .call(() => fadeOutStaticSideFaces(staticSideFadeDuration), [], cameraMoveStart + staticSideFadeOffset)
+    .call(() => showStaticSideFaces(), [], returnStart)
     .to(cam, {
       angle: cameraPreAngle,
       radius: cameraPreRadius,
