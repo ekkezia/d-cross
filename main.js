@@ -764,7 +764,7 @@ let instanceData = null;
 let bridgeDebugMesh = null;
 const bridgeDebugState = { opacity: 1.0 };
 let dimensionFrameTimeline = null;
-const dimensionFrameAnimationEnabled = true;
+let dimensionFrameAnimationEnabled = true;
 
 function restartDimensionFrameTimeline() {
   if (!dimensionFrameAnimationEnabled || !dimensionFrameTimeline) return;
@@ -1442,6 +1442,13 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+// Toggle the frame animation on/off
+window.toggleFrameAnimation = function() {
+  dimensionFrameAnimationEnabled = !dimensionFrameAnimationEnabled;
+  initDimensionFrameOverlay();
+  return dimensionFrameAnimationEnabled;
+};
 
 // ─────────────────────────────────────────────
 // BOOT

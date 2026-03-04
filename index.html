@@ -10,10 +10,44 @@
       overflow: hidden;
       font-family: "Avenir Next Condensed", "Futura", "Trebuchet MS", sans-serif;
     }
+<<<<<<< Updated upstream
     #canvas-container {
       width: 100vw;
       height: 100vh;
       background-color: #0D00FF;
+=======
+    #scene-root {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      z-index: 56;
+      container-type: size;
+    }
+    body.ratio-active #scene-root {
+      inset: auto;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      outline: 0.5px dotted var(--p-text);
+    }
+    #black-bars {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: var(--p-canvas-bg);
+      z-index: 55; /* below scene-root (56) */
+    }
+    body.ratio-active #black-bars {
+      display: block;
+    }    #canvas-container {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      height: 100%;
+      background-color: transparent;
+      transform: scale(0.55);
+      transform-origin: center center;
+>>>>>>> Stashed changes
     }
     #loading {
       position: absolute;
@@ -115,6 +149,219 @@
       mix-blend-mode: overlay;
       opacity: 0.5;
     }
+<<<<<<< Updated upstream
+=======
+    #timeline-controls {
+      position: fixed;
+      left: 1rem;
+      right: 1rem;
+      bottom: 1rem;
+      z-index: 120;
+      display: none;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      padding: 0.55rem 0.7rem;
+      border: 0.5px solid var(--p-bar-border);
+      background: var(--p-bar-bg);
+      backdrop-filter: blur(6px);
+      color: var(--p-bar-color);
+      box-sizing: border-box;
+    }
+    #timeline-controls button {
+      border: 0.5px solid var(--p-btn-border);
+      background: var(--p-btn-bg);
+      color: var(--p-bar-color);
+      padding: 0.4rem 0.7rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-family: inherit;
+    }
+    #timeline-controls button:hover {
+      filter: brightness(1.3);
+    }
+    .palette-btn {
+      width: 1.1rem;
+      height: 1.1rem;
+      padding: 0 !important;
+      border-radius: 50%;
+      flex-shrink: 0;
+      cursor: pointer;
+      position: relative;
+    }
+    .palette-btn.active {
+      outline: 2px solid var(--p-bar-color);
+      outline-offset: 2px;
+    }
+    .palette-sep {
+      width: 1px;
+      height: 1.4rem;
+      background: var(--p-btn-border);
+      flex-shrink: 0;
+    }
+    #timeline-scrubber {
+      flex: 1;
+      min-width: 10rem;
+    }
+    #timeline-time {
+      min-width: 8rem;
+      text-align: right;
+      opacity: 0.9;
+    }
+    /* ── Frame-anchored text overlay ── */
+    .text-size {
+      letter-spacing: 0.08em;
+      font-size: clamp(0.4rem, 0.75vw, 1rem);
+      font-weight: 500;
+      text-shadow: 0 0 18px var(--p-bar-bg);
+      font-weight: 500;
+    }
+    .text-size-lg {
+      font-size: clamp(0.6rem, 1vw, 1.2rem);
+      font-weight: 500;
+      text-shadow: 0 0 18px var(--p-bar-bg);
+      font-weight: 500;
+      /* color: rgb(132, 26, 26) !important; */
+    }
+    #frame-text-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      user-select: none;
+    }
+    #text-unbroken {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+      pointer-events: none;
+      user-select: none;
+      line-height: 1;
+      text-align: center;
+      gap: 0;
+      opacity: 0.5;
+      font-family: "Aref Ruqaa", serif;
+      filter: url(#pixelate);
+      transform: translate(0%, -2%);
+      
+    }
+    #text-unbroken span {
+      display: block;
+      font-size: clamp(2rem, 10cqw, 30cqw);
+      font-weight: 400;
+      color: transparent;
+      -webkit-text-stroke: 2px var(--p-text);
+      letter-spacing: 4 !important;
+      -webkit-text-stroke-color: rgb(121, 25, 25) !important;
+    }
+    .frame-dot {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: var(--p-bar-border);
+      opacity: 0.8;
+    }
+    .frame-dot.top-left    { top: -5px;    left: -5px; }
+    .frame-dot.top-right   { top: -5px;    right: -5px; }
+    .frame-dot.bottom-right { bottom: -5px; right: -5px; }
+    .frame-dot.bottom-left  { bottom: -5px; left: -5px; }
+    #logo-overlay {
+      position: absolute;
+      left: 6.5%;
+      top: 1.5%;
+      height: 2rem;
+      width: auto;
+      z-index: 70;
+      pointer-events: none;
+    }
+    body.aspect-narrow #text-event {
+      
+      left: 6%;
+    }
+    body.aspect-narrow #text-chinese {
+      right: 6%;
+    }
+    body.aspect-narrow #text-unbroken {
+      transform: translateY(0%);
+      line-height: 1.5;
+    }
+    #text-event {
+      position: absolute;
+      left: 5.8%;
+      top: 7%;
+      padding-left: 0.8rem;
+      text-align: left;
+      color: var(--p-text);
+      letter-spacing: 0.07em;
+      z-index: 70;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.4;
+    }
+    /* Shanghai Venue – 2nd frame (3D) top-right corner */
+    #text-venue {
+      position: absolute;
+      right: 12%;
+      top: calc(12% + 0.5rem);
+      padding-right: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      z-index: 70;
+    }
+    #text-venue .tag-label {
+      color: var(--p-text);
+      letter-spacing: 0.07em;
+    }
+    /* Date – 1D frame bottom-left corner */
+    #text-date {
+      position: absolute;
+      left: 12%;
+      bottom: calc(12% + 0.5rem);
+      padding-left: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      z-index: 70;
+    }
+    #text-date .tag-label {
+      color: var(--p-text);
+      letter-spacing: 0.07em;
+    }
+    /* Chinese text – 4D frame bottom-right */
+    #text-chinese {
+      position: absolute;
+      right: 5.8%;
+      bottom: 7%;
+      padding-right: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      text-align: right;
+      z-index: 70;
+      opacity: 0.8;
+      scale: 1.01;
+    }
+    #text-chinese .tag-label {
+      color: var(--p-text);
+      letter-spacing: 0.1em;
+      opacity: 0.85;
+    }
+
+    .aspect-btn {
+      font-size: 0.72rem;
+      padding: 0.3rem 0.5rem !important;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .aspect-btn.active {
+      outline: 2px solid var(--p-bar-color);
+      outline-offset: 2px;
+    }
+
+>>>>>>> Stashed changes
     @keyframes risoGrainJitter {
       0% {
         transform: translate3d(0, 0, 0);
@@ -160,6 +407,233 @@
   </div>
   <div id="riso-grain" aria-hidden="true"></div>
 
+<<<<<<< Updated upstream
+=======
+  <!-- SVG filter defs -->
+  <svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+    <defs>
+      <!-- pixelate: tile size controlled by width/height on feComposite + radius on feMorphology -->
+      <filter id="pixelate" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
+        <feFlood x="2" y="2" height="1" width="1"/>
+        <feComposite width="4" height="4"/>
+        <feTile result="grid"/>
+        <feComposite in="SourceGraphic" in2="grid" operator="in"/>
+        <feMorphology operator="dilate" radius="1.5"/>
+      </filter>
+    </defs>
+  </svg>
+
+  <!-- Frame-anchored text overlay (fixed position, does not scale with frames) -->
+  <div id="frame-text-overlay" aria-hidden="true">
+
+    <!-- Top-left: title (4D frame top-left corner) -->
+    <!-- <div id="text-title">String Theory</div> -->
+
+    <!-- Large background text: Unbroken Thread -->
+    <div id="text-unbroken">
+      <span>unbroken</span>
+      <span>thread</span>
+    </div>
+
+    <!-- Logo: top-left, above event text -->
+    <img id="logo-overlay" src="public/logo-white.png" alt="Logo">
+
+    <!-- 4D frame top-left: event info -->
+    <div id="text-event" class="text-size">
+      <span>The Hong Kong Polytechnic University School of Fashion and Textiles</span>
+      <span>MA in Fashion Textile Design Graduate Show</span>
+    </div>
+
+    <!-- 3D frame top-right: venue -->
+    <div id="text-venue">
+      <span class="tag-label text-size-lg">800SHOW Creative Park</span>
+      <span style="display:flex; align-items:center; justify-content:center;">
+        <span class="tag-label text-size-lg" style="transform:translateY(1.5px);">THE NEXT</span>
+        <span class="tag-label text-size-lg" style="font-weight: 400;">新势力&nbsp;|&nbsp;</span>
+        <span class="tag-label text-size-lg" style="font-weight: 400;">静安</span>
+        <span class="tag-label text-size-lg" style="transform:translateY(1.5px);">800SHOW</span>
+      </span>
+    </div>
+
+    <!-- 3D frame bottom-left: date -->
+    <div id="text-date">
+      <span class="tag-label text-size-lg">1.4.2026 (Wed 三) | 19:00</span>
+    </div>
+
+    <!-- 1D frame bottom-right: Chinese text -->
+    <div id="text-chinese">
+      <span class="tag-label text-size">香港理工大学时装及纺织学院</span>
+      <span class="tag-label text-size">服装及纺织品设计文学硕士毕业生时装秀</span>
+    </div>
+
+  </div>
+  </div><!-- /scene-root -->
+  <div id="timeline-controls" aria-label="Animation timeline controls">
+    <button id="timeline-play-pause" type="button">Pause</button>
+    <button id="toggle-frame-anim" type="button" title="Toggle frame animation">Frame Anim ON</button>
+    <button id="toggle-unbroken-scale" type="button" title="Toggle unbroken thread scale animation">Text Scale ON</button>
+    <button id="toggle-low-opacity" type="button" title="Toggle low opacity mode">Low Opacity OFF</button>
+    <input id="timeline-scrubber" type="range" min="0" max="1" step="0.001" value="0">
+    <span id="timeline-time">0.00 / 0.00s</span>
+    <button id="timeline-capture" type="button">Capture</button>
+    <div class="palette-sep"></div>
+    <button class="palette-btn" data-palette="blue"   type="button" style="background:#0d00ff" title="Blue"></button>
+    <button class="palette-btn" data-palette="black"  type="button" style="background:#000000" title="Black"></button>
+    <button class="palette-btn" data-palette="purple" type="button" style="background:#0d0020" title="Purple"></button>
+    <button class="palette-btn active" data-palette="gray"   type="button" style="background:#e0e0e0" title="Gray"></button>
+    <div class="palette-sep"></div>
+    <button class="aspect-btn" data-aspect="16:9" type="button" title="16:9 landscape crop">16:9</button>
+    <button class="aspect-btn" data-aspect="2:1"  type="button" title="2:1 landscape crop">2:1</button>
+    <button class="aspect-btn" data-aspect="9:16" type="button" title="9:16 portrait crop">9:16</button>
+    <button class="aspect-btn" data-aspect="1:1"  type="button" title="1:1 square crop">1:1</button>
+  </div>
+
+  <script>
+    function _swapLogo(paletteId) {
+      const logoEl = document.getElementById('logo-overlay');
+      if (logoEl) logoEl.src = paletteId === 'gray' ? 'public/logo-black.png' : 'public/logo-white.png';
+    }
+    // ── Frame animation toggle ──
+    (function() {
+      const btn = document.getElementById('toggle-frame-anim');
+      if (!btn) return;
+      btn.addEventListener('click', () => {
+        const enabled = window.toggleFrameAnimation ? window.toggleFrameAnimation() : true;
+        btn.textContent = enabled ? 'Frame Anim ON' : 'Frame Anim OFF';
+        btn.style.opacity = enabled ? '' : '0.45';
+      });
+    })();
+
+    // ── Unbroken thread scale toggle ──
+    (function() {
+      const btn = document.getElementById('toggle-unbroken-scale');
+      if (!btn) return;
+      btn.addEventListener('click', () => {
+        const enabled = window.toggleUnbrokenScaleAnim ? window.toggleUnbrokenScaleAnim() : true;
+        btn.textContent = enabled ? 'Text Scale ON' : 'Text Scale OFF';
+        btn.style.opacity = enabled ? '' : '0.45';
+      });
+    })();
+
+    // ── Low opacity toggle ──
+    (function() {
+      const btn = document.getElementById('toggle-low-opacity');
+      if (!btn) return;
+      btn.addEventListener('click', () => {
+        const enabled = window.toggleLowOpacity ? window.toggleLowOpacity() : false;
+        btn.textContent = enabled ? 'Low Opacity ON' : 'Low Opacity OFF';
+        btn.style.opacity = enabled ? '' : '0.45';
+      });
+    })();
+
+    document.querySelectorAll('.palette-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (window.applyPalette) window.applyPalette(btn.dataset.palette);
+        document.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        localStorage.setItem('d-cross-palette', btn.dataset.palette);
+        _swapLogo(btn.dataset.palette);
+        if (window.restartAnimation) window.restartAnimation();
+      });
+    });
+    // Restore palette + aspect from localStorage on load (falls back to gray / no ratio)
+    window.addEventListener('load', () => {
+      const savedPalette = localStorage.getItem('d-cross-palette') || 'gray';
+      const savedAspect  = localStorage.getItem('d-cross-aspect');
+
+      // Activate correct palette button
+      document.querySelectorAll('.palette-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.palette === savedPalette);
+      });
+      if (window.applyPalette) window.applyPalette(savedPalette);
+      _swapLogo(savedPalette);
+
+      // Restore aspect ratio if one was saved
+      if (savedAspect && _aspectRatios[savedAspect]) {
+        const btn = document.querySelector(`.aspect-btn[data-aspect="${savedAspect}"]`);
+        if (btn) btn.classList.add('active');
+        _applyAspect(savedAspect);
+      }
+    });
+
+    // ── Aspect-ratio render mode ──
+    const _aspectRatios = { '16:9': 16/9, '2:1': 2/1, '9:16': 9/16, '1:1': 1 };
+    let _currentAspect = null;
+    const _sceneRoot = document.getElementById('scene-root');
+
+    function _applyAspect(key) {
+      if (!key) {
+        _sceneRoot.style.width  = '';
+        _sceneRoot.style.height = '';
+        document.body.classList.remove('ratio-active');
+        document.body.classList.remove('aspect-narrow');
+        if (window.resizeScene) window.resizeScene(window.innerWidth, window.innerHeight);
+        _currentAspect = null;
+        return;
+      }
+      const ratio = _aspectRatios[key];
+      const vw = window.innerWidth, vh = window.innerHeight;
+      let w, h;
+      if (vw / vh > ratio) { h = vh; w = h * ratio; }
+      else                  { w = vw; h = w / ratio; }
+      w = Math.round(w); h = Math.round(h);
+      _sceneRoot.style.width  = w + 'px';
+      _sceneRoot.style.height = h + 'px';
+      document.body.classList.add('ratio-active');
+      document.body.classList.toggle('aspect-narrow', key === '9:16' || key === '1:1');
+      if (window.resizeScene) window.resizeScene(w, h);
+      _currentAspect = key;
+    }
+
+    document.querySelectorAll('.aspect-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.aspect;
+        const isActive = btn.classList.contains('active');
+        document.querySelectorAll('.aspect-btn').forEach(b => b.classList.remove('active'));
+        if (isActive) {
+          _applyAspect(null);
+          localStorage.removeItem('d-cross-aspect');
+        } else {
+          btn.classList.add('active');
+          _applyAspect(key);
+          localStorage.setItem('d-cross-aspect', key);
+        }
+        if (window.restartAnimation) window.restartAnimation();
+      });
+    });
+
+    // single resize handler — covers both free viewport and constrained ratio
+    window.addEventListener('resize', () => {
+      if (_currentAspect) _applyAspect(_currentAspect);
+      else if (window.resizeScene) window.resizeScene(window.innerWidth, window.innerHeight);
+    });
+
+    // Auto-fullscreen on first user gesture (browsers block it without interaction)
+    function _enterFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+    }
+    function _onFirstGesture() {
+      _enterFullscreen();
+      document.removeEventListener('click', _onFirstGesture);
+      document.removeEventListener('keydown', _onFirstGesture);
+    }
+    document.addEventListener('click', _onFirstGesture);
+    document.addEventListener('keydown', _onFirstGesture);
+
+    // F — toggle fullscreen
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'f' && e.key !== 'F') return;
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    });
+  </script>
+
+>>>>>>> Stashed changes
   <script type="importmap">
     {
       "imports": {
