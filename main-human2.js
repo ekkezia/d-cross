@@ -799,12 +799,12 @@ function createGroundWireGrid(boundingBox) {
   const center = new THREE.Vector3();
   boundingBox.getCenter(center);
 
-  // Match spacing logic from createGridWireframe.
-  const xStep = Math.max(size.x / 2, 1e-6);
-  const zStep = Math.max(size.z / 4, 1e-6);
+  // Tile spacing — larger multiplier = fewer, bigger tiles.
+  const xStep = Math.max(size.x * 4, 1e-6);
+  const zStep = Math.max(size.z * 4, 1e-6);
 
   // Make floor lines much longer than the point-cloud bounds.
-  const floorExtentScale = 14;
+  const floorExtentScale = 50;
   const floorMinX = center.x - (size.x * floorExtentScale) * 0.5;
   const floorMaxX = center.x + (size.x * floorExtentScale) * 0.5;
   const floorMinZ = center.z - (size.z * floorExtentScale) * 0.5;
@@ -827,12 +827,30 @@ function createGroundWireGrid(boundingBox) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
   const groundMat = new THREE.LineBasicMaterial({
-    color: blueMono.gridLine,
+    color: 0x5C2020,
     transparent: true,
     opacity: 0.8,
   });
   wireframeMaterials.push(groundMat);
   scene.add(new THREE.LineSegments(geo, groundMat));
+
+  // Subtle gray fill plane sitting just under the wireframe lines
+  const planeW = floorMaxX - floorMinX;
+  const planeD = floorMaxZ - floorMinZ;
+  const planeGeo = new THREE.PlaneGeometry(planeW, planeD);
+  const planeMat = new THREE.MeshBasicMaterial({
+    color: 0x888888,
+    transparent: true,
+    opacity: 0.07,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: 1,
+    polygonOffsetUnits: 1,
+  });
+  const planeMesh = new THREE.Mesh(planeGeo, planeMat);
+  planeMesh.rotation.x = -Math.PI / 2;
+  planeMesh.position.set(center.x, y - 0.001, center.z);
+  scene.add(planeMesh);
 }
 
 // ─────────────────────────────────────────────
@@ -940,7 +958,7 @@ const secondFourDState = { opacity: 0 };
 let secondFourDRevealed = false;
 const FourDState = { opacity: 1.0 };
 let dimensionFrameTimeline = null;
-const dimensionFrameAnimationEnabled = true;
+let dimensionFrameAnimationEnabled = true;
 
 function restartDimensionFrameTimeline() {
   if (!dimensionFrameAnimationEnabled || !dimensionFrameTimeline) return;
@@ -1213,7 +1231,7 @@ function loadPointCloud() {
 
     const box3 = new THREE.Box3().setFromObject(cubes);
     createGridWireframe(box3);
-    // createGroundWireGrid(box3);
+    createGroundWireGrid(box3);
     loadFourDMesh('public/3d-model-human.glb');
     loadSecondFourDMesh('public/3d-model-human.glb');
 
@@ -1356,6 +1374,7 @@ function initTimelineControls() {
   timelineUi.scrubber = document.getElementById('timeline-scrubber');
   timelineUi.timeLabel = document.getElementById('timeline-time');
   timelineUi.captureBtn = document.getElementById('timeline-capture');
+  timelineUi.dimAnimBtn = document.getElementById('timeline-dim-anim');
 
   if (!timelineUi.container || !timelineUi.playPauseBtn || !timelineUi.scrubber || !timelineUi.timeLabel || !timelineUi.captureBtn) return;
   setTimelineControlsVisible(true);
@@ -1386,6 +1405,14 @@ function initTimelineControls() {
   timelineUi.captureBtn.addEventListener('click', () => {
     captureCurrentCanvasFrame();
   });
+
+  if (timelineUi.dimAnimBtn) {
+    timelineUi.dimAnimBtn.addEventListener('click', () => {
+      dimensionFrameAnimationEnabled = !dimensionFrameAnimationEnabled;
+      timelineUi.dimAnimBtn.textContent = dimensionFrameAnimationEnabled ? 'Frame Anim: On' : 'Frame Anim: Off';
+      initDimensionFrameOverlay();
+    });
+  }
 
   document.addEventListener('keydown', (event) => {
     if (event.code !== 'Space' || event.repeat) return;

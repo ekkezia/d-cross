@@ -51,12 +51,14 @@
     }
     body.ratio-active #black-bars {
       display: block;
-    }    #canvas-container {
+    }   
+    #canvas-container {
       position: relative;
       z-index: 2;
       width: 100%;
       height: 100%;
       background-color: transparent;
+      scale: 1;
     }
     #loading {
       position: absolute;
@@ -281,20 +283,21 @@
       z-index: 1;
       pointer-events: none;
       user-select: none;
-      line-height: 1.7;
+      line-height: 1.5;
       text-align: center;
       gap: 0;
-      opacity: 0.15;
+      opacity: 0.5;
       font-family: "Aref Ruqaa", serif;
       filter: url(#pixelate);
       transform: translate(0%, -2%);
+      color: rgb(83, 2, 2) !important;
     }
     #text-unbroken span {
       display: block;
-      font-size: clamp(2rem, 16cqw, 18cqw);
+      font-size: clamp(2rem, 10cqw, 18cqw);
       font-weight: 400;
       color: transparent;
-      -webkit-text-stroke: 2px var(--p-text);
+      -webkit-text-stroke: 2px #6B0F1A;
       letter-spacing: -0.02em;
     }
     .frame-dot {
@@ -528,6 +531,7 @@
     <input id="timeline-scrubber" type="range" min="0" max="1" step="0.001" value="0">
     <span id="timeline-time">0.00 / 0.00s</span>
     <button id="timeline-capture" type="button">Capture</button>
+    <button id="timeline-dim-anim" type="button" title="Toggle frame-dimension animation">Frame Anim: On</button>
     <div class="palette-sep"></div>
     <button class="palette-btn" data-palette="blue"   type="button" style="background:#0d00ff" title="Blue"></button>
     <button class="palette-btn" data-palette="black"  type="button" style="background:#000000" title="Black"></button>
