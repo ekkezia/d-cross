@@ -999,7 +999,7 @@ function initDimensionFrameOverlay() {
   const durationScales = [1, 1, 1, 1]; // 4D -> 1D
   const scaleDurations = baseDurations.slice(0, layers.length).map((d, i) => d * durationScales[i]);
   const cycleDuration = Math.max(...scaleDurations);
-  const targetInsets = [6, 12.5, 20, 24];
+  const targetInsets = [6, 11, 18, 24];
   const startInsets = [0, 0, 0, 0];
   const insetStates = targetInsets.map((target, i) => ({
     value: target,
@@ -1584,10 +1584,6 @@ function animateCameraToCube() {
     .call(() => resetFlipCascadeState(true), [], flipRestartOffset)
     .call(() => fadeOutStaticSideFaces(staticSideFadeDuration), [], cameraMoveStart + staticSideFadeOffset)
     // Reset #text-unbroken to its initial state so stale GSAP values don't persist between restarts
-    .set('#text-unbroken', {
-      opacity: 0.8,
-      scale: 1,
-    }, 0)
     .to(cam, {
       angle: cameraLoopStart.angle,
       radius: cameraLoopStart.radius,
@@ -1633,24 +1629,8 @@ function animateCameraToCube() {
       duration: 4,
       ease: 'sine.inOut',
     }, cameraMoveStart)
-    .to('#text-unbroken', {
-      scale: (() => {
-        const a = document.querySelector('.aspect-btn.active')?.dataset?.aspect;
-        return (a === '1:1') ? 0.8 : 0.8;
-      })(),
-      duration: 4,
-      ease: 'sine.inOut',
-    }, cameraMoveStart + 3)
-    .to('#text-unbroken', {
-      opacity: (() => {
-        const a = document.querySelector('.aspect-btn.active')?.dataset?.aspect;
-        return (a === '9:16') ? 0.8 : 0.8;
-      })(),
-      duration: 4,
-      ease: 'sine.inOut',
-    }, flipRestartOffset)
     .to(cubes?.material ?? {}, {
-      opacity: 1, duration: cubesFadeInDuration, ease: 'power2.out', overwrite: false,
+      opacity: 0.02, duration: cubesFadeInDuration, ease: 'power2.out', overwrite: false,
     }, revealStart)
     .to(extraCubesFade, {
       opacity: 1, duration: cubesFadeInDuration, ease: 'power2.out', overwrite: false,
@@ -1819,12 +1799,6 @@ function animateCameraToCube() {
     }, returnStart)
     .to(cam, {
       fov: cameraLoopStart.fov,
-      duration: returnDuration * 0.7,
-      ease: 'sine.inOut',
-    }, returnStart)
-    .to('#text-unbroken', {
-      opacity: 0.8,
-      scale: 1,
       duration: returnDuration * 0.7,
       ease: 'sine.inOut',
     }, returnStart)

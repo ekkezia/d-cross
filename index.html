@@ -162,11 +162,30 @@
       filter: brightness(0.96);
     }
     #dimension-layer-1d {
-      inset: 0;
+      inset: 96px;
       z-index: 1;
       --matte-color: var(--p-matte);
       filter: brightness(1.0);
+      box-shadow:
+        inset 0 0 120px rgba(255, 255, 255, 0.55),
+        inset 0 0 60px rgba(255, 255, 255, 0.45),
+        inset 0 0 20px rgba(255, 255, 255, 0.35),
+        0 0 0 200vmax var(--matte-color);
     }
+    .corner-sq {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background: rgba(255, 255, 255, 0.55);
+      border: 0.5px solid rgba(255, 255, 255, 0.9);
+      box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+      pointer-events: none;
+      z-index: 10;
+    }
+    .corner-sq.tl { top: 0;    left: 0; }
+    .corner-sq.tr { top: 0;    right: 0; }
+    .corner-sq.br { bottom: 0; right: 0; }
+    .corner-sq.bl { bottom: 0; left: 0; }
     #riso-grain {
       position: absolute;
       inset: 0;
@@ -255,7 +274,7 @@
     /* ── Frame-anchored text overlay ── */
     .text-size {
       letter-spacing: 0.08em;
-      font-size: clamp(0.4rem, 0.75vw, 1rem);
+      font-size: clamp(0.4rem, 0.8vw, 1rem);
       font-weight: 500;
       text-shadow: 0 0 18px var(--p-bar-bg);
       font-weight: 500;
@@ -286,19 +305,19 @@
       line-height: 1.5;
       text-align: center;
       gap: 0;
-      opacity: 0.5;
+      opacity: 0.9;
       font-family: "Aref Ruqaa", serif;
       filter: url(#pixelate);
       transform: translate(0%, -2%);
-      color: rgb(83, 2, 2) !important;
     }
     #text-unbroken span {
       display: block;
-      font-size: clamp(2rem, 10cqw, 18cqw);
+      font-size: clamp(2rem, 14cqw, 18cqw);
       font-weight: 400;
       color: transparent;
-      -webkit-text-stroke: 2px #6B0F1A;
+      -webkit-text-stroke: 2px #954550;
       letter-spacing: -0.02em;
+      color: rgba(255,0,0,0.4);
     }
     .frame-dot {
       position: absolute;
@@ -312,28 +331,27 @@
     .frame-dot.bottom-right { bottom: -5px; right: -5px; }
     .frame-dot.bottom-left  { bottom: -5px; left: -5px; }
     #logo-overlay {
-      position: absolute;
-      left: 6.5%;
-      top: 2%;
+      position: fixed;
+      left: 6.8%;
+      top: 1.5%;
       height: 2rem;
       width: auto;
       z-index: 70;
       pointer-events: none;
     }
     body.aspect-narrow #text-event {
-      
-      left: 6%;
+      left: 10%;
     }
     body.aspect-narrow #text-chinese {
-      right: 6%;
+      right: 10%;
     }
     body.aspect-narrow #text-unbroken {
       transform: translateY(0%);
       line-height: 2.5;
     }
     #text-event {
-      position: absolute;
-      left: 5.8%;
+      position: fixed;
+      left: 6%;
       top: 7%;
       padding-left: 0.8rem;
       text-align: left;
@@ -346,9 +364,9 @@
     }
     /* Shanghai Venue – 2nd frame (3D) top-right corner */
     #text-venue {
-      position: absolute;
-      right: 11%;
-      top: calc(11.5% + 0.5rem);
+      position: fixed;
+      right: 12.5%;
+      top: 13.5%;
       padding-right: 0.8rem;
       display: flex;
       flex-direction: column;
@@ -361,9 +379,9 @@
     }
     /* Date – 1D frame bottom-left corner */
     #text-date {
-      position: absolute;
-      left: 11%;
-      bottom: calc(11% + 0.5rem);
+      position: fixed;
+      left: 12.5%;
+      bottom: 13%;
       padding-left: 0.8rem;
       display: flex;
       flex-direction: column;
@@ -375,9 +393,9 @@
     }
     /* Chinese text – 4D frame bottom-right */
     #text-chinese {
-      position: absolute;
-      right: 5.8%;
-      bottom: 7%;
+      position: fixed;
+      right: 5.7%;
+      bottom: 7.2%;
       padding-right: 0.8rem;
       display: flex;
       flex-direction: column;
@@ -448,7 +466,7 @@
       <div id="dimension-layer-4d" class="dimension-layer">
         <div class="dimension-layer-label"></div>
         <div class="frame-dot top-left"></div>
-         <div class="frame-dot bottom-right"></div>
+        <div class="frame-dot bottom-right"></div>
       </div>
       <div id="dimension-layer-3d" class="dimension-layer">
         <div class="dimension-layer-label"></div>
@@ -461,7 +479,6 @@
       </div>
       <div id="dimension-layer-1d" class="dimension-layer">
         <div class="dimension-layer-label"></div>
-       
       </div>
     </div>
   </div>
@@ -476,7 +493,7 @@
         <feComposite width="4" height="4"/>
         <feTile result="grid"/>
         <feComposite in="SourceGraphic" in2="grid" operator="in"/>
-        <feMorphology operator="dilate" radius="1.5"/>
+        <feMorphology operator="dilate" radius="1.2"/>
       </filter>
     </defs>
   </svg>
@@ -541,6 +558,7 @@
     <button class="aspect-btn" data-aspect="16:9" type="button" title="16:9 landscape crop">16:9</button>
     <button class="aspect-btn" data-aspect="9:16" type="button" title="9:16 portrait crop">9:16</button>
     <button class="aspect-btn" data-aspect="1:1"  type="button" title="1:1 square crop">1:1</button>
+    <button class="aspect-btn" data-aspect="2:1"  type="button" title="2:1 ultrawide crop">2:1</button>
   </div>
 
   <script>
@@ -579,7 +597,7 @@
     });
 
     // ── Aspect-ratio render mode ──
-    const _aspectRatios = { '16:9': 16/9, '9:16': 9/16, '1:1': 1 };
+    const _aspectRatios = { '16:9': 16/9, '9:16': 9/16, '1:1': 1, '2:1': 2/1 };
     let _currentAspect = null;
     const _sceneRoot = document.getElementById('scene-root');
 
